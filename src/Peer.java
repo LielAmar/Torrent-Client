@@ -2,7 +2,7 @@ import java.util.BitSet;
 
 public class Peer {
 
-    private final int peerId;
+    private int peerId;
 
 
     private boolean choked;
@@ -11,8 +11,16 @@ public class Peer {
     public Peer(int peerId) {
         this.peerId = peerId;
 
-
         this.choked = false;
         this.bitfield = null;
+    }
+    
+    public int getPeerId() {
+        return this.peerId;
+    }
+
+    public void setPeerId(int peerId)
+    {
+        this.peerId = peerId;
     }
 }

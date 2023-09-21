@@ -41,4 +41,16 @@ public class CommonConfiguration {
     public long getPieceSize() {
         return pieceSize;
     }
+
+    public String toString()
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("# Prefered Neighbors: " + this.numberOfPreferredNeighbors + "\n");
+        sb.append("Unchoking Interval: " + this.unchokingInterval + "\n");
+        sb.append("Optimistic Unchoking: " + this.optimisticUnchokingInterval + "\n");
+        sb.append("File Name: " + this.fileName + "\n");
+        sb.append("File Size: " + this.fileSize + "\n");
+        sb.append("Piece Size: " + this.pieceSize + "\n");
+        return sb.toString();
+    }
 }
