@@ -4,7 +4,7 @@
 ::@ECHO %abspath%
 
 @SET builddir=%abspath%Build
-@mkdir %builddir%
+if not exist "%builddir%" mkdir "%builddir%"
 @SET rundir=%abspath%RunDir
 
 ::@ECHO %builddir%
