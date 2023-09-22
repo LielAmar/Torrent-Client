@@ -107,7 +107,7 @@ public class PeerConnection extends Thread {
 
         // Set the peer id
         System.arraycopy(ByteBuffer.allocate(4).putInt(PeerProcess.config.getProcessPeerId()).array(), 0,
-                buffer, i, i + 4);
+                buffer, i, 4);
 
         try {
             this.out.write(buffer);

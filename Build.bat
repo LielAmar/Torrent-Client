@@ -11,7 +11,10 @@ if not exist "%builddir%" mkdir "%builddir%"
 ::@ECHO %rundir%
 
 @echo compiling
-javac -d "%builddir%" src/*.java
+cd "%abspath%/src"
+javac -d "%builddir%" "*.java"
 
 ::@echo Running
 ::java -Duser.dir="%rundir%" -cp "%builddir%" %mainfile% 1001
+
+cd "%abspath%"

@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -28,7 +29,7 @@ public class PeerProcess {
      * @param peerId   The ID of the local peer
      */
     private static void setupConfiguration(int peerId) {
-        try (BufferedReader br = new BufferedReader(new FileReader(COMMON_CONFIG_FILE))) {
+        try (BufferedReader br = new BufferedReader(new FileReader((new File(COMMON_CONFIG_FILE)).getAbsolutePath()))) {
             StringBuilder sb = new StringBuilder();
             String line;
 
@@ -64,7 +65,7 @@ public class PeerProcess {
      * Parses the peerInfo.cfg file, opens connections with previous peers & starts listening to incoming connections.
      */
     private static void setupPeerConnections() {
-        try (BufferedReader br = new BufferedReader(new FileReader(PEER_INFO_CONFIG_FILE))) {
+        try (BufferedReader br = new BufferedReader(new FileReader((new File(PEER_INFO_CONFIG_FILE)).getAbsolutePath()))) {
             String line;
 
             while ((line = br.readLine()) != null) {
@@ -115,9 +116,11 @@ public class PeerProcess {
                 System.out.println("[SERVER] Listening to connections from peers on port " + port);
 
                 while (true) {
-                    System.out.println("[SERVER] Received a connection request from another peer!");
+                    
                     // TODO: figure out a way to extract the peer id instead of inputting -1
                     new PeerConnection(listener.accept(), new Peer(-1)).start();
+                    // Put the print after the thread creation so it only prints when it actually connects
+                    System.out.println("[SERVER] Received a connection request from another peer!");
                 }
             }
         } catch (IOException e) {

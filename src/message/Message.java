@@ -25,7 +25,7 @@ public abstract class Message {
             return true;
         }
 
-        // TODO: might wanna through an exception
+        // TODO: might wanna throw an exception
         return this.type.getPayloadSize() == this.payload.length;
     }
 
