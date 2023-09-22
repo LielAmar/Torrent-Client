@@ -1,14 +1,19 @@
-public class CommonConfiguration {
+public class Configuration {
+
+    private final int processPeerId;
 
     private final int numberOfPreferredNeighbors;
     private final int unchokingInterval;
     private final int optimisticUnchokingInterval;
     private final String fileName;
-    private final long fileSize;
-    private final long pieceSize;
+    private final int fileSize;
+    private final int pieceSize;
 
-    public CommonConfiguration(int numberOfPreferredNeighbors, int unchokingInterval,
-                               int optimisticUnchokingInterval, String fileName, long fileSize, long pieceSize) {
+    public Configuration(int processPeerId,
+                         int numberOfPreferredNeighbors, int unchokingInterval,
+                         int optimisticUnchokingInterval, String fileName, int fileSize, int pieceSize) {
+        this.processPeerId = processPeerId;
+
         this.numberOfPreferredNeighbors = numberOfPreferredNeighbors;
         this.unchokingInterval = unchokingInterval;
         this.optimisticUnchokingInterval = optimisticUnchokingInterval;
@@ -17,6 +22,10 @@ public class CommonConfiguration {
         this.pieceSize = pieceSize;
     }
 
+
+    public int getProcessPeerId() {
+        return processPeerId;
+    }
 
     public int getNumberOfPreferredNeighbors() {
         return numberOfPreferredNeighbors;
@@ -34,16 +43,16 @@ public class CommonConfiguration {
         return fileName;
     }
 
-    public long getFileSize() {
+    public int getFileSize() {
         return fileSize;
     }
 
-    public long getPieceSize() {
+    public int getPieceSize() {
         return pieceSize;
     }
 
-    public String toString()
-    {
+
+    public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("# Prefered Neighbors: " + this.numberOfPreferredNeighbors + "\n");
         sb.append("Unchoking Interval: " + this.unchokingInterval + "\n");

@@ -1,345 +1,157 @@
+import exceptions.NetworkException;
+import message.Message;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.*;
 import java.nio.ByteBuffer;
+import java.util.Deque;
 import java.util.LinkedList;
-import java.util.Queue;
-import java.util.Arrays;
-import java.util.BitSet;
-
-import javax.swing.text.html.parser.Element;
 
 public class PeerConnection extends Thread {
 
-    private static void PrintByteArray(byte[] array)
-    {
-        // print out the raw bytes of an array, just left in case needed for debugging
-        for (byte b : array) {
-            System.out.format("0x%x ", b);
-        }
-        System.out.print("\n");
-    }
-    private enum MessageType {
-        choke(0, 0),
-        unchoke(1, 0),
-        interested(2, 0),
-        notinterested(3, 0),
-        have(4, 4),
-        bitfield(5, -1),
-        request(6, 4),
-        piece(7, -1),
-        unknown(10, -1);
+    private static final int HANDSHAKE_LENGTH = 32;
+    private static final String HANDSHAKE_HEADER = "P2PFILESHARINGPROJ";
+    private static final int HANDSHAKE_ZERO_BITS_LENGTH = 10;
 
-        public final int typeNum;
-        public final int payloadSize;
+    private final Socket connection;
+    private final Peer peer;
 
-        private MessageType(int typeNum, int payloadSize) {
-            this.typeNum = typeNum;
-            this.payloadSize = payloadSize;
-        }
+    private final Deque<Message> incomingMessageQueue;
 
-        public static MessageType typeFromValue(int value)
-        {
-            for (MessageType m : MessageType.values()) 
-            {
-                if(m.typeNum == value)
-                {
-                    return m;
-                }
-            }
-            return MessageType.unknown;
-        } 
-    }
-
-
-    private class Message {
-        private MessageType type;
-        private byte[] rawData;
-
-        public Message(MessageType type)
-        {
-            this.type = type;
-        }
-
-        public Message(int typeNum)
-        {
-            this.type = MessageType.typeFromValue(typeNum);
-        }
-
-        // this constructs a message object from the data recieved over the network
-        // this should recieve full message minus the initial 4 byte message length field
-        public Message(byte[] recievedData)
-        {
-            this.type = MessageType.typeFromValue((int) (recievedData[0]));
-            System.out.println("Message Type: " + this.type.name());
-            if (recievedData.length != 1) {
-                this.rawData = Arrays.copyOfRange(recievedData, 1, recievedData.length);
-            } else {
-                this.rawData = new byte[0];
-            }
-        }
-        
-        public void SetIntData(int data) throws UnsupportedOperationException
-        {
-            if (!(type == MessageType.have || type == MessageType.request)) {
-                throw new UnsupportedOperationException(
-                        "Ints can only be written for \'have\' and \'request\' messages");
-            }
-            rawData = ByteBuffer.allocate(4).putInt(data).array();
-        }
-        
-        public int GetIntData() throws UnsupportedOperationException
-        {
-            if (!(type == MessageType.have || type == MessageType.request)) {
-                throw new UnsupportedOperationException(
-                        "Ints can only be read for \'have\' and \'request\' messages");
-            }
-            ByteBuffer byteBuffer = ByteBuffer.allocate(4).put(rawData);
-            byteBuffer.rewind();
-            return byteBuffer.getInt();
-        }
-
-        public BitSet GetBitSet() throws UnsupportedOperationException
-        {
-            if (!(type == MessageType.have || type == MessageType.request)) {
-                throw new UnsupportedOperationException(
-                        "Bitsets can only be written for \'have\' and \'request\' messages");
-            }
-            
-            return new BitSet(0);
-        }
-
-        private boolean ValidateDataLen()
-        {
-            if (this.type.payloadSize < 0) {
-                return true;
-            } else {
-                if (this.type.payloadSize == this.rawData.length) {
-                    return true;
-                } else {
-                    System.out.println("Message has an invalid length");
-                    return false;
-                }
-            }
-        }
-        
-        // returns a byte array containing the full message, ready to send
-        public byte[] GetFullMessage() throws NetworkException
-        {
-            // the length value that will be used in the length field of the message
-            // doesnt include the size of the length field itself
-            System.out.println("Raw data length: " + rawData.length);
-
-            int length = rawData.length + 1;
-
-            // the length including the length field
-            int realLength = length + 4; // 
-
-            byte[] fullMessage = new byte[realLength];
-
-
-            // write the len and type fields
-            // length
-            ByteBuffer lengthBuffer = ByteBuffer.allocate(4).putInt(length);
-            for(int i = 0; i < 4; i++)
-            {
-                fullMessage[i] = lengthBuffer.array()[i];
-            }
-
-            // type
-            fullMessage[4] = (byte) (this.type.typeNum);
-
-            if (!ValidateDataLen())
-            {
-                throw new NetworkException("Data is not a valid length");
-            }
-            // copy the raw data to the output
-            for (int i = 5, j = 0; i < realLength; i++, j++)
-            {
-                fullMessage[i] = rawData[j];
-            }
-
-
-            System.out.println("Full message bytes");
-            PrintByteArray(fullMessage);
-            return fullMessage;
-        }
-    }
-
-    static final String handshakeHeader = "P2PFILESHARINGPROJ";
-    
-
-    private Peer peer;
-    private int localPeerId;
-    private Socket connection;
     private InputStream in;
     private OutputStream out;
-    private LinkedList<Message> incomingMessageQueue;
 
-    public PeerConnection(Socket connection, Peer peer, int localPeerId)
-    {
+    public PeerConnection(Socket connection, Peer peer) {
         this.connection = connection;
         this.peer = peer;
-        this.localPeerId = localPeerId;
-        incomingMessageQueue = new LinkedList<Message>();
+
+        this.incomingMessageQueue = new LinkedList<>();
     }
 
-    public void run()
-    {
+    public void run() {
         int peerId;
-        Message test;
-        byte[] testBytes;
         
-        try
-        {
-            
-            in = connection.getInputStream();
-            out = connection.getOutputStream();
-            System.out.println("Connection established with peer " + peer.getPeerId());
-            SendHandshake();
-            peerId = ListenHandshake();
-            if (peerId <= 0)
-            {
-                System.out.println("Handshake failed, closing connection");
-                return;
+        try {
+            this.in = this.connection.getInputStream();
+            this.out = this.connection.getOutputStream();
+
+            // TODO: make sure the handshake is correct.
+            // Currently, both sides send handshake as soon as possible, but it might cause issues (if both send in the same type)
+            // and are unable to listen or something like that.
+            // Might wanna figure out a way to decide on a first sender and a second sender (client-created vs server-created in main)
+            System.out.println("[CONNECTION] Sending handshake to peer " + this.peer.getPeerId());
+            sendHandshake();
+
+            peerId = listenToHandshake();
+            if(peerId <= 0) {
+                System.out.println("[CONNECTION] Handshake with " + this.peer.getPeerId() + " failed, closing connection");
+                return; // Still executes finally statement
             }
-            peer.setPeerId(peerId);
-            System.out.println("Handshake received from peer " + peer.getPeerId());
 
-            test = new Message(4);
+            this.peer.setPeerId(peerId);
+            System.out.println("[CONNECTION] Handshake received from peer " + this.peer.getPeerId());
 
-            test.SetIntData(543);
-
-            System.out.println("Test data: " + test.GetIntData());
-
-            test.GetFullMessage();
-
-            if (1 == 1)
-                return;
-            
-            while (true) 
-            {
-                ListenMessage();
-                while(!incomingMessageQueue.isEmpty())
-                {
+            // TODO: override this
+            while (true) {
+                listenToMessages();
+                while(!this.incomingMessageQueue.isEmpty()) {
                     System.out.println("Processing message");
-                    incomingMessageQueue.pop();
+                    this.incomingMessageQueue.pop();
                 }
 
-                // determine if we need to send any messages
+                // TODO: determine if we need to send any messages
             }
-        }
-        catch (IOException|NetworkException e)
-        {
-            System.out.println("Disconnect with Client " + peer.getPeerId());
-        }
-        finally{
-            //Close connections
-            try{
-                in.close();
-                out.close();
-                connection.close();
-            }
-            catch(IOException ioException){
-                System.out.println("Disconnect with Client " + peer.getPeerId() + " failed");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            try {
+                System.out.println("[CONNECTION] Closing connection with peer " + this.peer.getPeerId());
+
+                this.in.close();
+                this.out.close();
+                this.connection.close();
+            } catch(IOException ioException){
+                System.out.println("[CONNECTION] Failed to close connection with peer " + this.peer.getPeerId());
             }
         }
     }
 
-    private void sendMessage(Message message) throws NetworkException
-    {
+    private void sendMessage(Message message) throws NetworkException {
         // TODO: add logging here
-        byte[] buff = message.GetFullMessage();
-        try
-        {
-            out.write(buff);
-        }
-        catch(IOException e)
-        {
-            System.out.println("Falied to send message.");
+        byte[] messageBuffer = message.getFullMessage();
+
+        try {
+            this.out.write(messageBuffer);
+        } catch(IOException e) {
+            System.out.println("[CONNECTION] Failed to send a message to peer " + this.peer.getPeerId());
         }
     }
 
-    private void ListenMessage()
-    {
+    private void listenToMessages() {
         
     }
     
-    private void SendHandshake()
-    {
-        byte[] buff = new byte[32];
-        
-        int i;
-        for (i = 0; i < handshakeHeader.length(); i++) 
-        {
-            buff[i] = (byte) handshakeHeader.charAt(i);
-        }
-        // leave 10 zero bytes
-        i += 10;
+    private void sendHandshake() {
+        byte[] buffer = new byte[HANDSHAKE_LENGTH];
 
-        //System.out.println("Local Peer ID" + localPeerId + "\nHex: " + Integer.toHexString(localPeerId));
-        ByteBuffer localPeerIdByteBuffer = ByteBuffer.allocate(4).putInt(localPeerId);
-        for(int j = 0; j < 4; j++, i++)
-        {
-            buff[i] = localPeerIdByteBuffer.array()[j];
+        // Set the handshake header
+        int i;
+        for (i = 0; i < HANDSHAKE_HEADER.length(); i++) {
+            buffer[i] = (byte) HANDSHAKE_HEADER.charAt(i);
         }
-        
-        try
-        {
-            out.write(buff);
-        }
-        catch(IOException e)
-        {
-            System.out.println("Falied to send handshake.");
+
+        // Set the handshake zero bits (10 zero bytes)
+        i += HANDSHAKE_ZERO_BITS_LENGTH;
+
+        // Set the peer id
+        System.arraycopy(ByteBuffer.allocate(4).putInt(PeerProcess.config.getProcessPeerId()).array(), 0,
+                buffer, i, i + 4);
+
+        try {
+            this.out.write(buffer);
+        } catch(IOException e) {
+            System.out.println("[CONNECTION] Failed to send handshake to peer " + this.peer.getPeerId());
         }
     }
 
-    private int ListenHandshake()
-    {
-        final int handshakeLen = 32;
-        byte[] buff = new byte[32];
+    /**
+     * Listens to the input stream and tries to decode the handshake packet
+     *
+     * @return   The ID of the connected peer
+     */
+    private int listenToHandshake() {
+        byte[] buff = new byte[HANDSHAKE_LENGTH];
         int i = 0;
-        try
-        {
-            while(i < 32)
-            {
-                i += in.read(buff, i, handshakeLen - i);
-                //System.out.println("read " + j + "bytes of handshake");
+
+        try {
+            while(i < 32) {
+                i += this.in.read(buff, i, HANDSHAKE_LENGTH - i);
             }
-        }
-        catch (IOException e)
-        {
-            System.out.println("Falied to recieve handshake.");
+        } catch (IOException e) {
+            System.out.println("[CONNECTION] Failed to receive handshake from peer " + this.peer.getPeerId());
             return -1;
         }
 
-        
-
-
-        // Decode Handshake
-
-        // verify header    
-        String verifyHeader = new String(buff, 0, handshakeHeader.length());
-        if (!(verifyHeader.equals(handshakeHeader)))
-        {
-            System.out.println("Handshake header not valid");
+        // Verify header
+        String verifyHeader = new String(buff, 0, HANDSHAKE_HEADER.length());
+        if (!(verifyHeader.equals(HANDSHAKE_HEADER))) {
+            System.out.println("[CONNECTION] Handshake header received from " + this.peer.getPeerId() + " is not valid");
             return -1;
         }
-        // verify 0 bytes
-        for (int j = handshakeHeader.length(); j < handshakeHeader.length() + 10; j++)
-        {
+
+        // Verify 0 bytes
+        for (int j = HANDSHAKE_HEADER.length(); j < HANDSHAKE_HEADER.length() + HANDSHAKE_ZERO_BITS_LENGTH; j++) {
             if (buff[j] != 0) {
-                System.out.println("Handshake zero bytes missing");
+                System.out.println("[CONNECTION] Handshake zero bytes missing from peer " + this.peer.getPeerId());
                 return -1;
             }
         }
-        //decode peerId
-        int peerId = 0;
+
+        // Decode peer ID
         ByteBuffer peerIdByteBuffer = ByteBuffer.allocate(4).put(buff, 28, 4);
         peerIdByteBuffer.rewind();
-        peerId = peerIdByteBuffer.getInt();
-
-        return peerId;
+        return peerIdByteBuffer.getInt();
     }
 }

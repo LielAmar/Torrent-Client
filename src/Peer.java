@@ -4,7 +4,6 @@ public class Peer {
 
     private int peerId;
 
-
     private boolean choked;
     private BitSet bitfield;
 
