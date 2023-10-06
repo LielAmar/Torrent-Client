@@ -2,7 +2,7 @@ package project.packet;
 
 public abstract class Packet {
 
-    private final PacketType type;
+    protected final PacketType type;
 
     protected byte[] payload;
 

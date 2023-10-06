@@ -1,6 +1,7 @@
 package project.connection;
 
 import project.PeerProcess;
+import project.packet.packets.BitFieldPacket;
 import project.packet.packets.HandshakePacket;
 import project.peer.Peer;
 
@@ -21,7 +22,14 @@ public class PeerConnectionSender extends PeerConnection {
             this.out = new DataOutputStream(this.connection.getOutputStream());
 
             sendHandshake();
-        } catch (IOException e) {
+
+            sendBitField();
+            // Send my bitfield
+
+            this.peer.getLatch().await();
+
+            // Send interest / uninterest
+        } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
             try {
@@ -47,14 +55,26 @@ public class PeerConnectionSender extends PeerConnection {
         System.out.println("[SENDER] Sent Handshake Packet");
     }
 
+    private void sendBitField() {
+        System.out.println("[SENDER] Sending Bitfield Packet");
+
+        BitFieldPacket packet = new BitFieldPacket();
+
+        packet.setPayload(PeerProcess.config.getLocalBitSet());
+
+        this.sendBytes(packet.build());
+
+        System.out.println("[SENDER] Sent Bitfield Packet");
+    }
+
     private void sendBytes(byte[] payload) {
-        try{
-            out.write(payload);
-            out.flush();
+        try {
+            this.out.write(payload);
+            this.out.flush();
 
             System.out.println("[SENDER] Sent message: " + payload + " to peer " + this.peer.getPeerId());
-        } catch(IOException ioException){
-            ioException.printStackTrace();
+        } catch(IOException exception){
+            exception.printStackTrace();
         }
     }
 }

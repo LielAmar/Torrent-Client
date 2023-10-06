@@ -2,22 +2,22 @@ package project.packet;
 
 public enum PacketType {
 
-    CHOKE(0, 0),
-    UNCHOKE(1, 0),
-    INTERESTED(2, 0),
-    NOT_INTERESTED(3, 0),
-    HAVE(4, 4),
-    BITFIELD(5, -1),
-    REQUEST(6, 4),
-    PIECE(7, -1),
-    HANDSHAKE(8, 32),
-    UNKNOWN(10, -1);
+    CHOKE((byte) 0, 0),
+    UNCHOKE((byte) 1, 0),
+    INTERESTED((byte) 2, 0),
+    NOT_INTERESTED((byte) 3, 0),
+    HAVE((byte) 4, 4),
+    BITFIELD((byte) 5, -1),
+    REQUEST((byte) 6, 4),
+    PIECE((byte) 7, -1),
+    HANDSHAKE((byte) 8, 32),
+    UNKNOWN((byte) 10, -1);
 
 
-    private final int typeId;
+    private final byte typeId;
     private final int payloadSize;
 
-    PacketType(int type, int payloadSize) {
+    PacketType(byte type, int payloadSize) {
         this.typeId = type;
         this.payloadSize = payloadSize;
     }
@@ -36,7 +36,7 @@ public enum PacketType {
         return fromValue(payload[4]);
     }
 
-    public int getTypeId() {
+    public byte getTypeId() {
         return this.typeId;
     }
     public int getPayloadSize() {

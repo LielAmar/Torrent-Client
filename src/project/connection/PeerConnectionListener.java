@@ -32,6 +32,10 @@ public class PeerConnectionListener extends PeerConnection {
                 return;
             }
 
+            // Listen to bitfield
+            // Set this.peer.bitfield
+            this.peer.getLatch().countDown();
+
             // Start listening to incoming messages
             while (true) {
                 listenToMessage();

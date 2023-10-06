@@ -1,8 +1,12 @@
 package project.peer;
 
 import java.util.BitSet;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Semaphore;
 
 public class Peer {
+
+    private final CountDownLatch latch;
 
     // TODO: Instead of making peer atomic under peerconnection, we can change each parameter here to be atomic
     // that is: use atomic int for peerid, atomic boolean for choked and atomic bit set for bitfield
@@ -12,6 +16,8 @@ public class Peer {
     private BitSet bitfield;
 
     public Peer(int peerId) {
+        this.latch = new CountDownLatch(1);
+
         this.peerId = peerId;
 
         this.choked = false;
@@ -25,5 +31,17 @@ public class Peer {
     public void setPeerId(int peerId)
     {
         this.peerId = peerId;
+    }
+
+    public CountDownLatch getLatch() {
+        return this.latch;
+    }
+
+    public BitSet getBitfield() {
+        return bitfield;
+    }
+
+    public void setBitfield(BitSet bitfield) {
+        this.bitfield = bitfield;
     }
 }

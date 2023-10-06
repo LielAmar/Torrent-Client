@@ -60,6 +60,10 @@ public class Configuration {
         return pieceSize;
     }
 
+    public BitSet getLocalBitSet() {
+        return localBitSet;
+    }
+
     public void setLocalBitSet() {
         this.localBitSet.set(0, this.fileSize / this.pieceSize);
     }
