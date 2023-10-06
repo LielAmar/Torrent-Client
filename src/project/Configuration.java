@@ -1,3 +1,7 @@
+package project;
+
+import java.util.BitSet;
+
 public class Configuration {
 
     private final int processPeerId;
@@ -8,6 +12,9 @@ public class Configuration {
     private final String fileName;
     private final int fileSize;
     private final int pieceSize;
+
+    private final BitSet localBitSet; // TODO: Change it to an atomic bit set: https://stackoverflow.com/questions/12424633/atomicbitset-implementation-for-java
+                                      // so all threads can use it safely
 
     public Configuration(int processPeerId,
                          int numberOfPreferredNeighbors, int unchokingInterval,
@@ -20,6 +27,8 @@ public class Configuration {
         this.fileName = fileName;
         this.fileSize = fileSize;
         this.pieceSize = pieceSize;
+
+        this.localBitSet = new BitSet(this.fileSize / this.pieceSize);
     }
 
 
@@ -49,6 +58,10 @@ public class Configuration {
 
     public int getPieceSize() {
         return pieceSize;
+    }
+
+    public void setLocalBitSet() {
+        this.localBitSet.set(0, this.fileSize / this.pieceSize);
     }
 
 

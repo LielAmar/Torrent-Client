@@ -1,8 +1,8 @@
+package project;
+
 import java.net.*;
 import java.io.*;
-import java.nio.*;
-import java.nio.channels.*;
-import java.util.*;
+
 public class Server {
 
     private static final int sPort = 8000; //The server will be listening on this port number
@@ -15,7 +15,7 @@ public class Server {
         try {
             while(true) {
                 new Handler(listener.accept(),clientNum).start();
-                System.out.println("Client " + clientNum + " is connected!");
+                System.out.println("project.Client " + clientNum + " is connected!");
                 clientNum++;
             }
         } finally {
@@ -68,7 +68,7 @@ public class Server {
                 }
             }
             catch(IOException ioException){
-                System.out.println("Disconnect with Client " + no);
+                System.out.println("Disconnect with project.Client " + no);
             }
             finally{
                 //Close connections
@@ -78,7 +78,7 @@ public class Server {
                     connection.close();
                 }
                 catch(IOException ioException){
-                    System.out.println("Disconnect with Client " + no);
+                    System.out.println("Disconnect with project.Client " + no);
                 }
             }
         }
@@ -89,7 +89,7 @@ public class Server {
             try{
                 out.writeObject(msg);
                 out.flush();
-                System.out.println("Send message: " + msg + " to Client " + no);
+                System.out.println("Send message: " + msg + " to project.Client " + no);
             }
             catch(IOException ioException){
                 ioException.printStackTrace();

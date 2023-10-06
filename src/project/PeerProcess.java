@@ -1,6 +1,14 @@
+package project;
+
+import project.connection.PeerConnection;
+import project.connection.PeerConnectionListener;
+import project.connection.PeerConnectionSender;
+import project.peer.Peer;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.File;
+
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -56,6 +64,8 @@ public class PeerProcess {
                     Integer.parseInt(rows[4].split(" ")[1]), // file size
                     Integer.parseInt(rows[5].split(" ")[1])  // piece size
             );
+
+            System.out.println("[CONFIG] Created process configuration!");
         } catch (IOException exception) {
             exception.printStackTrace();
         }
@@ -68,19 +78,24 @@ public class PeerProcess {
         try (BufferedReader br = new BufferedReader(new FileReader((new File(PEER_INFO_CONFIG_FILE)).getAbsolutePath()))) {
             String line;
 
+            // Go over all peers preceding current peer and create a connection with them
+            // Once reaching current peer, open a socket server to listen to future connections with future peers
             while ((line = br.readLine()) != null) {
                 String[] values = line.split(" ");
 
                 int peerId = Integer.parseInt(values[0]);
                 int port = Integer.parseInt(values[2]);
 
-                // Open connections as long as didn't encounter a line for the current peer id
-                if (peerId != config.getProcessPeerId()) {
+                if (peerId < PeerProcess.config.getProcessPeerId()) {
                     String hostname = values[1];
 
                     connectToPeer(peerId, hostname, port);
                 } else {
-                    // Start listening to incoming connections with next peers.
+                    // If the current peer has the file, make sure to put it in the config
+                    if(Integer.parseInt(values[3]) == 1) {
+                        PeerProcess.config.setLocalBitSet();
+                    }
+
                     listenToIncomingConnections(port);
                 }
             }
@@ -90,7 +105,7 @@ public class PeerProcess {
     }
 
     /**
-     * Connects to another peer
+     * Connects to a different peer process that's listening to connections
      *
      * @param peerId     ID of the peer to connect to
      * @param hostname   Hostname of the peer to connect to
@@ -99,7 +114,18 @@ public class PeerProcess {
     private static void connectToPeer(int peerId, String hostname, int port) {
         try {
             System.out.println("[CLIENT] Creating connection to peerId: " + peerId + " at host " + hostname + ":" + port);
-            new PeerConnection(new Socket(hostname, port), new Peer(peerId)).start();
+
+            // Create a socket connection to the given peer and then create two peer connections:
+            // 1. A listener connection for listening to incoming messages
+            // 2. A sender connection for sending outgoing messages
+            Socket socket = new Socket(hostname, port);
+            Peer peer = new Peer(peerId);
+
+            PeerConnection listenerThread = new PeerConnectionListener(socket, peer);
+            PeerConnection senderThread   = new PeerConnectionSender(socket, peer);
+
+            listenerThread.start();
+            senderThread.start();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -116,10 +142,18 @@ public class PeerProcess {
                 System.out.println("[SERVER] Listening to connections from peers on port " + port);
 
                 while (true) {
-                    
-                    // TODO: figure out a way to extract the peer id instead of inputting -1
-                    new PeerConnection(listener.accept(), new Peer(-1)).start();
-                    // Put the print after the thread creation so it only prints when it actually connects
+                    // Create a socket connection to the given peer and then create two peer connections:
+                    // 1. A listener connection for listening to incoming messages
+                    // 2. A sender connection for sending outgoing messages
+                    Socket socket = listener.accept();
+                    Peer peer = new Peer(-1);
+
+                    PeerConnection listenerThread = new PeerConnectionListener(socket, peer);
+                    PeerConnection senderThread   = new PeerConnectionSender(socket, peer);
+
+                    listenerThread.start();
+                    senderThread.start();
+
                     System.out.println("[SERVER] Received a connection request from another peer!");
                 }
             }

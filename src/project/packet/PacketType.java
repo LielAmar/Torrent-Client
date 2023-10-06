@@ -1,8 +1,6 @@
-package message;
+package project.packet;
 
-import java.io.BufferedInputStream;
-
-public enum MessageType {
+public enum PacketType {
 
     CHOKE(0, 0),
     UNCHOKE(1, 0),
@@ -12,19 +10,20 @@ public enum MessageType {
     BITFIELD(5, -1),
     REQUEST(6, 4),
     PIECE(7, -1),
+    HANDSHAKE(8, 32),
     UNKNOWN(10, -1);
 
 
     private final int typeId;
     private final int payloadSize;
 
-    MessageType(int type, int payloadSize) {
+    PacketType(int type, int payloadSize) {
         this.typeId = type;
         this.payloadSize = payloadSize;
     }
 
-    public static MessageType fromValue(int value) {
-        for(MessageType messageType : MessageType.values()) {
+    public static PacketType fromValue(int value) {
+        for(PacketType messageType : PacketType.values()) {
             if(messageType.typeId == value) {
                 return messageType;
             }
@@ -33,8 +32,8 @@ public enum MessageType {
         return UNKNOWN;
     }
 
-    public static MessageType fromRawData(byte[] rawData) {
-        return fromValue(rawData[0]);
+    public static PacketType fromPayload(byte[] payload) {
+        return fromValue(payload[4]);
     }
 
     public int getTypeId() {

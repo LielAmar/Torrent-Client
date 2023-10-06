@@ -1,5 +1,5 @@
 @echo off
-@SET mainfile=PeerProcess
+@SET mainfile=project.PeerProcess
 @SET abspath=%~dp0
 ::@ECHO %abspath%
 

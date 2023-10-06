@@ -1,4 +1,4 @@
-package exceptions;
+package project.exceptions;
 
 public class NetworkException extends Exception{
     public NetworkException(String message)
