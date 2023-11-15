@@ -1,9 +1,12 @@
 package project;
 
+import project.connection.ConnectionState;
 import project.connection.PeerConnection;
 import project.connection.PeerConnectionListener;
+import project.connection.PeerConnectionManager;
 import project.connection.PeerConnectionSender;
 import project.peer.Peer;
+import project.peer.PeerInfoList;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -19,14 +22,16 @@ public class PeerProcess {
     private final static String PEER_INFO_CONFIG_FILE = "PeerInfo.cfg";
 
     public static Configuration config;
+    public static PeerInfoList peerInfoList;
 
     public static void main(String[] args) {
         if (args.length != 1) {
             System.err.println("Please specify a peerId!");
             return;
         }
-
+        
         setupConfiguration(Integer.parseInt(args[0]));
+        peerInfoList = new PeerInfoList(config.getProcessPeerId());
         setupPeerConnections();
     }
 
@@ -91,6 +96,7 @@ public class PeerProcess {
 
                     connectToPeer(peerId, hostname, port);
                 } else {
+                    // TODO: maybe move this outside of the while loop? it doesnt feel right to have this loop sitting unfinished when we call another function that just starts and infinite loop
                     // If the current peer has the file, make sure to put it in the config
                     if(Integer.parseInt(values[3]) == 1) {
                         PeerProcess.config.setLocalBitSet();
@@ -121,11 +127,14 @@ public class PeerProcess {
             Socket socket = new Socket(hostname, port);
             Peer peer = new Peer(peerId);
 
-            PeerConnection listenerThread = new PeerConnectionListener(socket, peer);
-            PeerConnection senderThread   = new PeerConnectionSender(socket, peer);
+            // PeerConnection listenerThread = new PeerConnectionListener(socket, peer);
+            // PeerConnection senderThread   = new PeerConnectionSender(socket, peer);
 
-            listenerThread.start();
-            senderThread.start();
+            // listenerThread.start();
+            // senderThread.start();
+            ConnectionState state = peerInfoList.NewPeer(peerId);
+            PeerConnectionManager connectionManager = new PeerConnectionManager(socket, state);
+            connectionManager.start();  
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -146,13 +155,10 @@ public class PeerProcess {
                     // 1. A listener connection for listening to incoming messages
                     // 2. A sender connection for sending outgoing messages
                     Socket socket = listener.accept();
-                    Peer peer = new Peer(-1);
+                    ConnectionState state = peerInfoList.NewPeer();
 
-                    PeerConnection listenerThread = new PeerConnectionListener(socket, peer);
-                    PeerConnection senderThread   = new PeerConnectionSender(socket, peer);
-
-                    listenerThread.start();
-                    senderThread.start();
+                    PeerConnectionManager connectionManager = new PeerConnectionManager(socket, state);
+                    connectionManager.start();  
 
                     System.out.println("[SERVER] Received a connection request from another peer!");
                 }

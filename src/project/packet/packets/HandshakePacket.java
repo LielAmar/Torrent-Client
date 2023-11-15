@@ -13,9 +13,28 @@ public class HandshakePacket extends Packet {
     protected static final int PEER_ID_LENGTH = 4;
 
     private int peerId;
+    private boolean valid;
 
+    public static int GetHandshakeLength()
+    {
+        return HANDSHAKE_LENGTH;
+    }
     public HandshakePacket() {
         super(PacketType.HANDSHAKE);
+        valid = true;
+    }
+
+    public HandshakePacket(int peerId) {
+        super(PacketType.HANDSHAKE);
+        this.peerId = peerId;
+        valid = true;
+    }
+
+    public HandshakePacket(byte[] payload)
+    {
+        super(PacketType.HANDSHAKE);
+        this.payload = payload;
+        this.parse(payload);
     }
 
     public void setPeerId(int peerId) {
@@ -26,7 +45,13 @@ public class HandshakePacket extends Packet {
         return this.peerId;
     }
 
+    public boolean getValid()
+    {
+        return this.valid;
+    }
+
     public byte[] build() {
+        System.out.println("[DEBUG]: Handshake message builder peer id: " + this.peerId);
         byte[] payload = new byte[HANDSHAKE_LENGTH];
 
         int i;
@@ -46,26 +71,32 @@ public class HandshakePacket extends Packet {
         return payload;
     }
 
+    // public static Packet PacketFromBytes(byte[] payload)
+    // {
+    //     return new HandshakePacket(payload);
+    // }
+
     public boolean parse(byte[] payload) {
+        this.valid = true;
         if(payload.length != HANDSHAKE_LENGTH) {
-            return false;
+            this.valid = false;
         }
 
         String header = new String(payload, 0, HANDSHAKE_HEADER.length());
 
         if(!header.equals(HANDSHAKE_HEADER)) {
-            return false;
+            this.valid = false;
         }
 
         for(int i = HANDSHAKE_HEADER.length(); i < HANDSHAKE_HEADER.length() + HANDSHAKE_ZERO_BITS_LENGTH; i++) {
             if(payload[i] != 0) {
-                return false;
+                this.valid = false;
             }
         }
 
         ByteBuffer peerIdBuffer = ByteBuffer.allocate(4).put(payload,  HANDSHAKE_HEADER.length() + HANDSHAKE_ZERO_BITS_LENGTH, PEER_ID_LENGTH);
         peerIdBuffer.rewind();
         this.peerId = peerIdBuffer.getInt();
-        return true;
+        return this.valid;
     }
 }

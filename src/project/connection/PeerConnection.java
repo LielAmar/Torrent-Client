@@ -8,10 +8,10 @@ public abstract class PeerConnection extends Thread {
 
     protected final Socket connection;
 
-    protected volatile Peer peer; // TODO: change to atomic {see TODO in Peer.java}
+    protected volatile ConnectionState state;
 
-    public PeerConnection(Socket connection, Peer peer) {
+    public PeerConnection(Socket connection, ConnectionState state) {
         this.connection = connection;
-        this.peer = peer;
+        this.state = state;
     }
 }

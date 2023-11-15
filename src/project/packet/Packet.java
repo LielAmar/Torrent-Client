@@ -1,5 +1,9 @@
 package project.packet;
 
+import project.exceptions.NetworkException;
+import project.packet.packets.HandshakePacket;
+import project.packet.packets.UnknownPacket;
+
 public abstract class Packet {
 
     protected final PacketType type;
@@ -10,6 +14,16 @@ public abstract class Packet {
         this.type = type;
 
         this.payload = null;
+    }
+
+    public PacketType GetType()
+    {
+        return this.type;
+    }
+
+    public String GetTypeSring()
+    {
+        return type.name();
     }
 
 //    /**
@@ -90,7 +104,50 @@ public abstract class Packet {
 //    // TODO is this the way to go?
 //    public abstract void buildMessage(byte[] array);
 
-    public abstract byte[] build();
+    /*
+    * Generate the byte array that will be send over the network connection
+    *
+    * @return byte[] that can be sent over the connection, includes the length headers
+    */
+    public abstract byte[] build() throws NetworkException;
+
+    // given the payload of the message (not including the length header), construct a packet of the appropriate type
+    public static Packet PacketFromBytes(byte[] messageBytes)
+    {
+        Packet newPacket = null;
+        switch (PacketType.fromPayload(messageBytes)) {
+            case CHOKE:
+                break;
+            case UNCHOKE:
+                break;
+            case INTERESTED:
+                break;
+            case NOT_INTERESTED:
+                break;
+            case HAVE:
+                break;
+            case BITFIELD:
+                break;
+            case REQUEST:
+                break;
+            case PIECE:
+                break;
+            case HANDSHAKE:
+                newPacket = new HandshakePacket(messageBytes);
+                break;
+            default:
+            case UNKNOWN:
+                newPacket = new UnknownPacket();
+                break;
+        }
+        if (newPacket == null)
+        {
+            System.out.println("[LISTENER] Packet did not get created, creating unknown");
+            newPacket = new UnknownPacket();
+        }
+        return newPacket;
+    }
+
 
     public abstract boolean parse(byte[] payload);
 //    public abstract boolean validate(byte[] payload);

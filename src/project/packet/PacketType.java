@@ -33,7 +33,7 @@ public enum PacketType {
     }
 
     public static PacketType fromPayload(byte[] payload) {
-        return fromValue(payload[4]);
+        return fromValue(payload[0]);
     }
 
     public byte getTypeId() {
