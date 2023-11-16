@@ -57,7 +57,7 @@ public class PiecePacket extends Packet {
 
     @Override
     public boolean parse(byte[] payload) {
-        if(payload[4] != super.type.getTypeId()) {
+        if(payload[0] != super.type.getTypeId()) {
             return false;
         }
 

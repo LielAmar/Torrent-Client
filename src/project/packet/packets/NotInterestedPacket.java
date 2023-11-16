@@ -43,6 +43,6 @@ public class NotInterestedPacket extends Packet{
 
     @Override
     public boolean parse(byte[] payload) {
-        return payload[4] == super.type.getTypeId();
+        return payload[0] == super.type.getTypeId();
     }
 }

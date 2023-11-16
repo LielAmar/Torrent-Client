@@ -66,21 +66,19 @@ public class BitFieldPacket extends Packet {
     }
 
     @Override
-    public boolean parse(byte[] payload) {
+    public boolean parse(byte[] message) {
         // TODO: change all parses to assume payload doesn't have the length (first 4 bytes).
         // This means that the given payload[0] is the message type
-        if(payload[0] != super.type.getTypeId()) {
+        if(message[0] != super.type.getTypeId()) {
             return false;
         }
 
-        ByteBuffer lengthBuffer = ByteBuffer.allocate(LENGTH_FIELD_LENGTH).put(payload,  0, LENGTH_FIELD_LENGTH);
-        lengthBuffer.rewind();
-        int length = lengthBuffer.getInt();
+        int length = message.length;
         int payloadLength = length - 1;
 
         // TODO: make sure this is a correct way to parse
-        this.payload = BitSet.valueOf(ByteBuffer.allocate(payloadLength).put(payload,
-                LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + payloadLength).rewind());
+        this.payload = BitSet.valueOf(ByteBuffer.allocate(payloadLength).put(message,
+                TYPE_FIELD_LENGTH, TYPE_FIELD_LENGTH + payloadLength).rewind());
         return true;
     }
 }
