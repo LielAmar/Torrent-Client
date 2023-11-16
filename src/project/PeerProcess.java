@@ -99,7 +99,7 @@ public class PeerProcess {
                     // If the current peer has the file, make sure to put it in the config
                     if(Integer.parseInt(values[3]) == 1) {
                         for(int i = 0; i < PeerProcess.config.getLocalPieces().length; i++) {
-                            PeerProcess.config.setLocalPiece(0, PieceStatus.HAVE);
+                            PeerProcess.config.setLocalPiece(i, PieceStatus.HAVE);
                         }
                     }
 
