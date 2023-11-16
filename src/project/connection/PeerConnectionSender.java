@@ -35,6 +35,10 @@ public class PeerConnectionSender extends PeerConnection {
             this.state.waitForHandshake();
             this.state.unlockHandshake();
 
+            // Send the second outgoing message (bitfield)
+            packet = this.messageQueue.take();
+            sendMessage(packet);
+
             // Start sending outgoing messages
             while (super.state.getConnectionActive()) {
                 packet = this.messageQueue.take();

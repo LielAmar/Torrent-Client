@@ -2,10 +2,12 @@ package project.connection;
 
 import java.net.Socket;
 
+import project.PeerProcess;
 import project.exceptions.NetworkException;
 import project.packet.Packet;
 import project.packet.PacketType;
 import project.packet.packets.*;
+import project.peer.Peer;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -35,7 +37,7 @@ public class PeerConnectionManager extends PeerConnection {
         this.listener.start();
 
         try {
-            // Send handshake packet and listen to handshake packet
+            // Create handshake packet to send and listen to handshake packet
             this.outgoingMessageQueue.put(new HandshakePacket(super.state.getLocalId()));
             Packet receivedPacket = this.incomingMessageQueue.take();
 
@@ -56,12 +58,17 @@ public class PeerConnectionManager extends PeerConnection {
 
             super.state.unlockHandshake();
 
+            // Create bitfield packet to send
+            BitFieldPacket bitFieldPacket = new BitFieldPacket();
+            bitFieldPacket.setPayload(PeerProcess.config.piecesStatusToBitset());
+            this.outgoingMessageQueue.put(bitFieldPacket);
+
+            // Use the manager to listen to incoming messages and update peer connection data
             while(super.state.getConnectionActive()) {
                 receivedPacket = this.incomingMessageQueue.take();
 
                 handleReceivedPacket(receivedPacket);
             }
-
         } catch (InterruptedException | NetworkException e) {
             throw new RuntimeException(e);
         }
@@ -71,14 +78,22 @@ public class PeerConnectionManager extends PeerConnection {
         switch (packet.getType()) {
             case CHOKE -> {}
             case UNCHOKE -> {}
-            case INTERESTED -> {}
+            case INTERESTED -> {
+//                send have
+            }
             case NOT_INTERESTED -> {}
-            case HAVE -> {}
-            case BITFIELD -> {}
+            case HAVE -> {
+//
+            }
+            case BITFIELD -> receivedBitfield((BitFieldPacket) packet);
             case REQUEST -> {}
             case PIECE -> {}
             case HANDSHAKE -> {}
             default -> {}
         }
+    }
+
+    private void receivedBitfield(BitFieldPacket packet) {
+        this.state.getPeer().setBitfield(packet.getPayload());
     }
 }

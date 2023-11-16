@@ -34,6 +34,10 @@ public class ConnectionState {
         this.peer.setPeerId(newId);
     }
 
+    public Peer getPeer() {
+        return this.peer;
+    }
+
     public boolean getConnectionActive() {
         return this.connectionActive.get();
     }

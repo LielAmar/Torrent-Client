@@ -98,7 +98,9 @@ public class PeerProcess {
                     // TODO: maybe move this outside of the while loop? it doesnt feel right to have this loop sitting unfinished when we call another function that just starts and infinite loop
                     // If the current peer has the file, make sure to put it in the config
                     if(Integer.parseInt(values[3]) == 1) {
-                        PeerProcess.config.setLocalBitSet();
+                        for(int i = 0; i < PeerProcess.config.getLocalPieces().length; i++) {
+                            PeerProcess.config.setLocalPiece(0, PieceStatus.HAVE);
+                        }
                     }
 
                     listenToIncomingConnections(port);

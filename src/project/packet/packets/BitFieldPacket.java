@@ -31,9 +31,15 @@ public class BitFieldPacket extends Packet {
         super(PacketType.BITFIELD);
     }
 
+
     public void setPayload(BitSet payload) {
         this.payload = payload;
     }
+
+    public BitSet getPayload() {
+        return this.payload;
+    }
+
 
     @Override
     public byte[] build() throws NetworkException {

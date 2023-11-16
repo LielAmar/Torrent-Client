@@ -12,7 +12,7 @@ public class Configuration {
     private final int pieceSize;
 
     // TODO: move this somewhere else. This is the local bitset that indicates which file parts this peer already has
-    private final BitSet localBitSet; // TODO: Change it to an atomic bit set: https://stackoverflow.com/questions/12424633/atomicbitset-implementation-for-java
+    private final PieceStatus[] localPieces; // TODO: Change it to an atomic bit set: https://stackoverflow.com/questions/12424633/atomicbitset-implementation-for-java
                                       // so all threads can use it safely
 
     public Configuration(int numberOfPreferredNeighbors, int unchokingInterval,
@@ -25,7 +25,7 @@ public class Configuration {
         this.fileSize = fileSize;
         this.pieceSize = pieceSize;
 
-        this.localBitSet = new BitSet(this.fileSize / this.pieceSize);
+        this.localPieces = new PieceStatus[(int) Math.ceil((double) this.fileSize / this.pieceSize)];
     }
 
 
@@ -53,12 +53,25 @@ public class Configuration {
         return pieceSize;
     }
 
-    public BitSet getLocalBitSet() {
-        return localBitSet;
+
+    public PieceStatus[] getLocalPieces() {
+        return this.localPieces;
     }
 
-    public void setLocalBitSet() {
-        this.localBitSet.set(0, this.fileSize / this.pieceSize);
+    public void setLocalPiece(int index, PieceStatus status) {
+        this.localPieces[index] = status;
+    }
+
+    public BitSet piecesStatusToBitset() {
+        BitSet bitSet = new BitSet(this.localPieces.length);
+
+        for(int i = 0; i < this.localPieces.length; i++) {
+            if(this.localPieces[i] == PieceStatus.HAVE) {
+                bitSet.set(i);
+            }
+        }
+
+        return bitSet;
     }
 
 

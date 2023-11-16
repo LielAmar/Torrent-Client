@@ -41,6 +41,7 @@ public class Peer {
     }
 
     public void setBitfield(BitSet bitfield) {
+        System.out.println("[PEER] Peer with id " + peerId + " sent its bitfield.");
         this.bitfield = bitfield;
     }
 }
