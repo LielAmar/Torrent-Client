@@ -69,7 +69,7 @@ public class BitFieldPacket extends Packet {
     public boolean parse(byte[] payload) {
         // TODO: change all parses to assume payload doesn't have the length (first 4 bytes).
         // This means that the given payload[0] is the message type
-        if(payload[4] != super.type.getTypeId()) {
+        if(payload[0] != super.type.getTypeId()) {
             return false;
         }
 
