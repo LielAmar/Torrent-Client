@@ -80,7 +80,7 @@ public class BitFieldPacket extends Packet {
 
         // TODO: make sure this is a correct way to parse
         this.payload = BitSet.valueOf(ByteBuffer.allocate(payloadLength).put(message,
-                TYPE_FIELD_LENGTH, TYPE_FIELD_LENGTH + payloadLength).rewind());
+                TYPE_FIELD_LENGTH, payloadLength).rewind());
         return true;
     }
 }
