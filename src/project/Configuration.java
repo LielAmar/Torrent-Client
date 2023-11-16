@@ -25,6 +25,10 @@ public class Configuration {
         this.fileSize = fileSize;
         this.pieceSize = pieceSize;
 
+        System.out.println("fileSize: " +fileSize);
+        System.out.println("piece size: " + pieceSize);
+        System.out.println("number of pieces: " + (int) Math.ceil((double) this.fileSize / this.pieceSize));
+
         this.localPieces = new PieceStatus[(int) Math.ceil((double) this.fileSize / this.pieceSize)];
     }
 
