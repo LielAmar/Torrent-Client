@@ -65,8 +65,7 @@ public class HavePacket extends Packet {
 
         // TODO: make sure this is a correct way to parse
         this.payload = new byte[PAYLOAD_FIELD_LENGTH];
-        System.arraycopy(payload, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH,
-                this.payload, 0, PAYLOAD_FIELD_LENGTH);
+        System.arraycopy(payload, TYPE_FIELD_LENGTH, this.payload, 0, PAYLOAD_FIELD_LENGTH);
         return true;
     }
 }

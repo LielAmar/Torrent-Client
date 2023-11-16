@@ -74,7 +74,9 @@ public class BitFieldPacket extends Packet {
         }
 
         int length = message.length;
+        System.out.println("length: " + length);
         int payloadLength = length - 1;
+        System.out.println("payload length: " + payloadLength);
 
         // TODO: make sure this is a correct way to parse
         this.payload = BitSet.valueOf(ByteBuffer.allocate(payloadLength).put(message,
