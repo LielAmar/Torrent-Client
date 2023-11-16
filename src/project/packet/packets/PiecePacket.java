@@ -5,12 +5,11 @@ import project.packet.Packet;
 import project.packet.PacketType;
 
 import java.nio.ByteBuffer;
-import java.util.BitSet;
 
-public class BitFieldPacket extends Packet {
+public class PiecePacket extends Packet {
 
     /*
-        BitField Packet Structure
+        Piece Packet Structure
 
         + - + - + - + - + - + - + - + - + - + - + - + -
         | Packet Length | Packet Type | Packet Payload |
@@ -19,50 +18,45 @@ public class BitFieldPacket extends Packet {
         Where:
         - Packet Length  = 4 bytes
         - Packet Type    = 1 byte
-        - Packet Payload = ~Number of pieces
+        - Packet Payload = 4 + Piece size
      */
 
     protected static final int LENGTH_FIELD_LENGTH = 4;
     protected static final int TYPE_FIELD_LENGTH = 1;
 
-    private BitSet payload;
+    private byte[] payload;
 
-    public BitFieldPacket() {
-        super(PacketType.BITFIELD);
+    public PiecePacket() {
+        super(PacketType.PIECE);
     }
 
-    public void setPayload(BitSet payload) {
+    public void setPayload(byte[] payload) {
         this.payload = payload;
     }
 
     @Override
     public byte[] build() throws NetworkException {
         if(this.payload == null) {
-            throw new NetworkException("[BITFIELD PACKET] trying to build a packet with null payload");
+            throw new NetworkException("[PIECE PACKET] trying to build a packet with null payload");
         }
 
-        // Build the message that would be sent over connection
-        byte[] payloadBytes = this.payload.toByteArray();
-
-        byte[] message = new byte[LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + payloadBytes.length];
+        byte[] message = new byte[LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + this.payload.length];
 
         // Set first 4 bytes: the length of the payload + the packet type field
-        System.arraycopy(ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(TYPE_FIELD_LENGTH + payloadBytes.length).array(), 0,
+        System.arraycopy(ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(TYPE_FIELD_LENGTH + this.payload.length).array(), 0,
                 message, 0, LENGTH_FIELD_LENGTH);
 
         // Set the packet type field
         message[4] = super.type.getTypeId();
 
         // Set the packet's payload data
-        System.arraycopy(payloadBytes, 0, message, 5, payloadBytes.length);
+        System.arraycopy(this.payload, 0, message, 5, this.payload.length);
 
         return message;
     }
 
     @Override
     public boolean parse(byte[] payload) {
-        // TODO: change all parses to assume payload doesn't have the length (first 4 bytes).
-        // This means that the given payload[0] is the message type
         if(payload[4] != super.type.getTypeId()) {
             return false;
         }
@@ -73,8 +67,9 @@ public class BitFieldPacket extends Packet {
         int payloadLength = length - 1;
 
         // TODO: make sure this is a correct way to parse
-        this.payload = BitSet.valueOf(ByteBuffer.allocate(payloadLength).put(payload,
-                LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + payloadLength).rewind());
+        this.payload = new byte[payloadLength];
+        System.arraycopy(payload, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH,
+                this.payload, 0, payloadLength);
         return true;
     }
 }

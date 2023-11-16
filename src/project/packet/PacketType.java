@@ -22,9 +22,15 @@ public enum PacketType {
         this.payloadSize = payloadSize;
     }
 
-    public static PacketType fromValue(int value) {
+    /**
+     * Given a packet type number, return a matching PacketType object
+     *
+     * @param type   Type of the packet
+     * @return       PacketType object matching the given type
+     */
+    public static PacketType fromValue(int type) {
         for(PacketType messageType : PacketType.values()) {
-            if(messageType.typeId == value) {
+            if(messageType.typeId == type) {
                 return messageType;
             }
         }
@@ -32,13 +38,21 @@ public enum PacketType {
         return UNKNOWN;
     }
 
+    /**
+     * Given a message payload (not including packet length), return the packet type
+     *
+     * @param payload   Payload to parse to get the packet type from
+     * @return          The packet's type
+     */
     public static PacketType fromPayload(byte[] payload) {
         return fromValue(payload[0]);
     }
 
+
     public byte getTypeId() {
         return this.typeId;
     }
+
     public int getPayloadSize() {
         return this.payloadSize;
     }

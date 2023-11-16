@@ -5,23 +5,18 @@ import project.packet.Packet;
 import project.packet.PacketType;
 
 public class UnknownPacket extends Packet {
-    public UnknownPacket()
-    {
+
+    public UnknownPacket() {
         super(PacketType.UNKNOWN);
     }
-    public byte[] build() throws NetworkException
-    {
+
+    @Override
+    public byte[] build() throws NetworkException {
         return new byte[0];
     }
 
-    public static Packet PacketFromBytes(byte[] messageBytes)
-    {
-        return new UnknownPacket();
-    }
-
-
-    public boolean parse(byte[] payload)
-    {
-        return true;
+    @Override
+    public boolean parse(byte[] payload) {
+        return false;
     }
 }

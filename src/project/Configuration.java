@@ -4,8 +4,6 @@ import java.util.BitSet;
 
 public class Configuration {
 
-    private final int processPeerId;
-
     private final int numberOfPreferredNeighbors;
     private final int unchokingInterval;
     private final int optimisticUnchokingInterval;
@@ -13,13 +11,12 @@ public class Configuration {
     private final int fileSize;
     private final int pieceSize;
 
+    // TODO: move this somewhere else. This is the local bitset that indicates which file parts this peer already has
     private final BitSet localBitSet; // TODO: Change it to an atomic bit set: https://stackoverflow.com/questions/12424633/atomicbitset-implementation-for-java
                                       // so all threads can use it safely
 
-    public Configuration(int processPeerId,
-                         int numberOfPreferredNeighbors, int unchokingInterval,
+    public Configuration(int numberOfPreferredNeighbors, int unchokingInterval,
                          int optimisticUnchokingInterval, String fileName, int fileSize, int pieceSize) {
-        this.processPeerId = processPeerId;
 
         this.numberOfPreferredNeighbors = numberOfPreferredNeighbors;
         this.unchokingInterval = unchokingInterval;
@@ -31,10 +28,6 @@ public class Configuration {
         this.localBitSet = new BitSet(this.fileSize / this.pieceSize);
     }
 
-
-    public int getProcessPeerId() {
-        return processPeerId;
-    }
 
     public int getNumberOfPreferredNeighbors() {
         return numberOfPreferredNeighbors;

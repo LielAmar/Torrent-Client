@@ -7,34 +7,34 @@ import java.nio.ByteBuffer;
 
 public class HandshakePacket extends Packet {
 
-    protected static final int HANDSHAKE_LENGTH = 32;
+    public static final int HANDSHAKE_LENGTH = 32;
     protected static final String HANDSHAKE_HEADER = "P2PFILESHARINGPROJ";
     protected static final int HANDSHAKE_ZERO_BITS_LENGTH = 10;
     protected static final int PEER_ID_LENGTH = 4;
 
+    private byte[] message;
+
     private int peerId;
     private boolean valid;
 
-    public static int GetHandshakeLength()
-    {
-        return HANDSHAKE_LENGTH;
-    }
     public HandshakePacket() {
         super(PacketType.HANDSHAKE);
-        valid = true;
+
+        this.valid = true;
     }
 
     public HandshakePacket(int peerId) {
         super(PacketType.HANDSHAKE);
+
         this.peerId = peerId;
-        valid = true;
+        this.valid = true;
     }
 
-    public HandshakePacket(byte[] payload)
-    {
+    public HandshakePacket(byte[] message) {
         super(PacketType.HANDSHAKE);
-        this.payload = payload;
-        this.parse(payload);
+
+        this.message = message;
+        this.parse(message);
     }
 
     public void setPeerId(int peerId) {
@@ -45,8 +45,7 @@ public class HandshakePacket extends Packet {
         return this.peerId;
     }
 
-    public boolean getValid()
-    {
+    public boolean isValid() {
         return this.valid;
     }
 
@@ -71,32 +70,34 @@ public class HandshakePacket extends Packet {
         return payload;
     }
 
-    // public static Packet PacketFromBytes(byte[] payload)
-    // {
-    //     return new HandshakePacket(payload);
-    // }
+    public boolean parse(byte[] message) {
+        // Check payload length
+        this.valid = message.length == HANDSHAKE_LENGTH;
 
-    public boolean parse(byte[] payload) {
-        this.valid = true;
-        if(payload.length != HANDSHAKE_LENGTH) {
-            this.valid = false;
+        if(!this.valid) {
+            return false;
         }
 
-        String header = new String(payload, 0, HANDSHAKE_HEADER.length());
+        // Check payload header
+        String header = new String(message, 0, HANDSHAKE_HEADER.length());
 
         if(!header.equals(HANDSHAKE_HEADER)) {
             this.valid = false;
         }
 
+        // Check payload zero bits
         for(int i = HANDSHAKE_HEADER.length(); i < HANDSHAKE_HEADER.length() + HANDSHAKE_ZERO_BITS_LENGTH; i++) {
-            if(payload[i] != 0) {
+            if (message[i] != 0) {
                 this.valid = false;
+                break;
             }
         }
 
-        ByteBuffer peerIdBuffer = ByteBuffer.allocate(4).put(payload,  HANDSHAKE_HEADER.length() + HANDSHAKE_ZERO_BITS_LENGTH, PEER_ID_LENGTH);
+        // Parse payload's peer id
+        ByteBuffer peerIdBuffer = ByteBuffer.allocate(4).put(message,  HANDSHAKE_HEADER.length() + HANDSHAKE_ZERO_BITS_LENGTH, PEER_ID_LENGTH);
         peerIdBuffer.rewind();
         this.peerId = peerIdBuffer.getInt();
+
         return this.valid;
     }
 }

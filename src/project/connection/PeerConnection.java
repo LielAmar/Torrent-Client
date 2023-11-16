@@ -1,7 +1,5 @@
 package project.connection;
 
-import project.peer.Peer;
-
 import java.net.*;
 
 public abstract class PeerConnection extends Thread {

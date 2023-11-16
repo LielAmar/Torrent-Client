@@ -1,10 +1,7 @@
 package project;
 
 import project.connection.ConnectionState;
-import project.connection.PeerConnection;
-import project.connection.PeerConnectionListener;
 import project.connection.PeerConnectionManager;
-import project.connection.PeerConnectionSender;
 import project.peer.Peer;
 import project.peer.PeerInfoList;
 
@@ -29,19 +26,20 @@ public class PeerProcess {
             System.err.println("Please specify a peerId!");
             return;
         }
-        
-        setupConfiguration(Integer.parseInt(args[0]));
-        peerInfoList = new PeerInfoList(config.getProcessPeerId());
-        setupPeerConnections();
+
+        setupConfiguration();
+
+        int localPeerId = Integer.parseInt(args[0]);
+        PeerProcess.peerInfoList = new PeerInfoList(localPeerId);
+
+        setupPeerConnections(localPeerId);
     }
 
 
     /**
      * Parses the Common.cfg file and sets up the configuration
-     *
-     * @param peerId   The ID of the local peer
      */
-    private static void setupConfiguration(int peerId) {
+    private static void setupConfiguration() {
         try (BufferedReader br = new BufferedReader(new FileReader((new File(COMMON_CONFIG_FILE)).getAbsolutePath()))) {
             StringBuilder sb = new StringBuilder();
             String line;
@@ -61,7 +59,6 @@ public class PeerProcess {
 
             // Set up the configuration object
             PeerProcess.config = new Configuration(
-                    peerId,                                        // Process peer id
                     Integer.parseInt(rows[0].split(" ")[1]), // number of preferred neighbors
                     Integer.parseInt(rows[1].split(" ")[1]), // unchoking interval
                     Integer.parseInt(rows[2].split(" ")[1]), // optimistic unchoking interval
@@ -78,8 +75,10 @@ public class PeerProcess {
 
     /**
      * Parses the peerInfo.cfg file, opens connections with previous peers & starts listening to incoming connections.
+     *
+     * @param localPeerId   The ID of the local peer process
      */
-    private static void setupPeerConnections() {
+    private static void setupPeerConnections(int localPeerId) {
         try (BufferedReader br = new BufferedReader(new FileReader((new File(PEER_INFO_CONFIG_FILE)).getAbsolutePath()))) {
             String line;
 
@@ -91,7 +90,7 @@ public class PeerProcess {
                 int peerId = Integer.parseInt(values[0]);
                 int port = Integer.parseInt(values[2]);
 
-                if (peerId < PeerProcess.config.getProcessPeerId()) {
+                if (peerId < localPeerId) {
                     String hostname = values[1];
 
                     connectToPeer(peerId, hostname, port);
@@ -125,17 +124,12 @@ public class PeerProcess {
             // 1. A listener connection for listening to incoming messages
             // 2. A sender connection for sending outgoing messages
             Socket socket = new Socket(hostname, port);
-            Peer peer = new Peer(peerId);
 
-            // PeerConnection listenerThread = new PeerConnectionListener(socket, peer);
-            // PeerConnection senderThread   = new PeerConnectionSender(socket, peer);
-
-            // listenerThread.start();
-            // senderThread.start();
-            ConnectionState state = peerInfoList.NewPeer(peerId);
+            ConnectionState state = PeerProcess.peerInfoList.connectToNewPeer(peerId);
             PeerConnectionManager connectionManager = new PeerConnectionManager(socket, state);
             connectionManager.start();  
         } catch (IOException e) {
+            // TODO: Close sockets
             throw new RuntimeException(e);
         }
     }
@@ -155,7 +149,7 @@ public class PeerProcess {
                     // 1. A listener connection for listening to incoming messages
                     // 2. A sender connection for sending outgoing messages
                     Socket socket = listener.accept();
-                    ConnectionState state = peerInfoList.NewPeer();
+                    ConnectionState state = peerInfoList.connectToNewPeer();
 
                     PeerConnectionManager connectionManager = new PeerConnectionManager(socket, state);
                     connectionManager.start();  
@@ -164,6 +158,7 @@ public class PeerProcess {
                 }
             }
         } catch (IOException e) {
+            // TODO: Close socket
             throw new RuntimeException(e);
         }
     }

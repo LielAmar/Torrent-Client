@@ -2,7 +2,6 @@ package project.peer;
 
 import java.util.BitSet;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Semaphore;
 
 public class Peer {
 

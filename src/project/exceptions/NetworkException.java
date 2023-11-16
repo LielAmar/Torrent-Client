@@ -1,8 +1,8 @@
 package project.exceptions;
 
-public class NetworkException extends Exception{
-    public NetworkException(String message)
-    {
+public class NetworkException extends Exception {
+
+    public NetworkException(String message) {
         super(message);
     }
 }

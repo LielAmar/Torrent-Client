@@ -6,24 +6,31 @@ import java.util.ArrayList;
 
 public class PeerInfoList {
 
-    private ArrayList<ConnectionState> connectedPeers;
     private final int localId;
-    public PeerInfoList(int localId)
-    {
+
+    private final ArrayList<ConnectionState> connectedPeers;
+
+    public PeerInfoList(int localId) {
         this.localId = localId;
-        this.connectedPeers = new ArrayList<ConnectionState>();
+
+        this.connectedPeers = new ArrayList<>();
     }
 
-    public ConnectionState NewPeer()
-    {
-        return this.NewPeer(-1);
+    public ConnectionState connectToNewPeer() {
+        return this.connectToNewPeer(-1);
     }
-    public ConnectionState NewPeer(int peerId)
-    {
+
+    public ConnectionState connectToNewPeer(int peerId) {
         ConnectionState newConnection = new ConnectionState(localId, new Peer(peerId));
-        connectedPeers.add(newConnection);
+        this.connectedPeers.add(newConnection);
         return newConnection;
     }
 
-    
+    public ConnectionState getConnectionById(int peerId) {
+        return this.connectedPeers
+                .stream()
+                .filter(con -> con.getPeerId() == peerId)
+                .findFirst()
+                .orElse(null);
+    }
 }

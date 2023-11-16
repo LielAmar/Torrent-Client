@@ -6,36 +6,42 @@ import project.packet.Packet;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.concurrent.BlockingQueue;
 
 public class PeerConnectionSender extends PeerConnection {
 
+    private final BlockingQueue<Packet> messageQueue;
+
     private DataOutputStream out;
-    private BlockingQueue<Packet> messageQueue;
 
     public PeerConnectionSender(Socket connection, ConnectionState state, BlockingQueue<Packet> outgoingMessageQueue) {
         super(connection, state);
-        messageQueue = outgoingMessageQueue;
+
+        this.messageQueue = outgoingMessageQueue;
     }
 
     public void run() {
         try {
+            // Get the output stream
             this.out = new DataOutputStream(this.connection.getOutputStream());
             Packet packet;
-            // sendHandshake();
 
-            // sendBitField();
-            // // Send my bitfield
+            // Send the first outgoing message (handshake)
+            packet = this.messageQueue.take();
+            sendMessage(packet);
 
-            // this.peer.getLatch().await();
+            // Wait for the handshake to be finished
+            // TODO: might be able to remove this wait
+            this.state.waitForHandshake();
+            this.state.unlockHandshake();
 
-            while (state.getConnectionActive()) {
-                packet = messageQueue.take();
+            // Start sending outgoing messages
+            while (super.state.getConnectionActive()) {
+                packet = this.messageQueue.take();
                 sendMessage(packet);
             }
 
-            // Send interest / uninterest
+            // Send interest / uninterested
         } catch (IOException | InterruptedException | NetworkException e) {
             throw new RuntimeException(e);
         } finally {
@@ -50,51 +56,17 @@ public class PeerConnectionSender extends PeerConnection {
         }
     }
 
-    private void sendMessage(Packet message) throws NetworkException
-    {
+    private void sendMessage(Packet message) throws NetworkException {
         try {
             byte[] messageBytes = message.build();
+
             this.out.write(messageBytes);
             this.out.flush();
-            // System.out.println("[SENDER] Sent " + message.GetTypeSring() + " message:\nBytes: " + Arrays.toString(messageBytes) + "\nString:"+(new String(messageBytes)) + "\nto peer " + this.state.getPeerId());
-            System.out.println("[SENDER] Sent " + message.GetTypeSring() + " message: " + /*Arrays.toString(messageBytes) */"" + " to peer " + this.state.getPeerId());
+
+            // System.out.println("[SENDER] Sent " + message.getTypeString() + " message:\nBytes: " + Arrays.toString(messageBytes) + "\nString:"+(new String(messageBytes)) + "\nto peer " + this.state.getPeerId());
+            System.out.println("[SENDER] Sent " + message.getTypeString() + " message: " + /*Arrays.toString(messageBytes) */"" + " to peer " + this.state.getPeerId());
         } catch(IOException exception){
             exception.printStackTrace();
         }
     }
-    
-    // private void sendHandshake() {
-    //     System.out.println("[SENDER] Sending Handshake Packet");
-
-    //     HandshakePacket packet = new HandshakePacket();
-
-    //     packet.setPeerId(PeerProcess.config.getProcessPeerId());
-
-    //     this.sendBytes(packet.build());
-
-    //     System.out.println("[SENDER] Sent Handshake Packet");
-    // }
-
-    // private void sendBitField() {
-    //     System.out.println("[SENDER] Sending Bitfield Packet");
-
-    //     BitFieldPacket packet = new BitFieldPacket();
-
-    //     packet.setPayload(PeerProcess.config.getLocalBitSet());
-
-    //     this.sendBytes(packet.build());
-
-    //     System.out.println("[SENDER] Sent Bitfield Packet");
-    // }
-
-    // private void sendBytes(byte[] payload) {
-    //     try {
-    //         this.out.write(payload);
-    //         this.out.flush();
-
-    //         System.out.println("[SENDER] Sent message: " + payload + " to peer " + this.state.getPeerId());
-    //     } catch(IOException exception){
-    //         exception.printStackTrace();
-    //     }
-    // }
 }
