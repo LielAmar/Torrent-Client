@@ -56,13 +56,13 @@ public class PeerConnectionListener extends PeerConnection {
     private byte[] readBytes(int length) {
         try {
             if(length > 0) {
-                System.out.println("Trying to read " + length + " bytes");
+                System.out.println("[DEBUG] Trying to read " + length + " bytes");
                 byte[] message = new byte[length];
                 this.in.readFully(message, 0, message.length);
                 return message;
             }
         } catch(IOException exception) {
-            System.out.println("Tried to read and failed");
+            System.out.println("[DEBUG] Tried to read and failed");
 //            exception.printStackTrace();
         }
 

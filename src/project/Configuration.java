@@ -25,9 +25,9 @@ public class Configuration {
         this.fileSize = fileSize;
         this.pieceSize = pieceSize;
 
-        System.out.println("fileSize: " +fileSize);
-        System.out.println("piece size: " + pieceSize);
-        System.out.println("number of pieces: " + (int) Math.ceil((double) this.fileSize / this.pieceSize));
+        System.out.println("[DEBUG] fileSize: " +fileSize);
+        System.out.println("[DEBUG] pieceSize: " + pieceSize);
+        System.out.println("[DEBUG] number of pieces: " + (int) Math.ceil((double) this.fileSize / this.pieceSize));
 
         this.localPieces = new PieceStatus[(int) Math.ceil((double) this.fileSize / this.pieceSize)];
     }
@@ -76,8 +76,6 @@ public class Configuration {
                 j++;
             }
         }
-
-        System.out.println("pieces status to bitset: " + pieceSize + " in j times: " + j);
 
         return bitSet;
     }
