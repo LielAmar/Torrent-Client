@@ -69,11 +69,15 @@ public class Configuration {
     public BitSet piecesStatusToBitset() {
         BitSet bitSet = new BitSet(this.localPieces.length);
 
+        int j = 0;
         for(int i = 0; i < this.localPieces.length; i++) {
             if(this.localPieces[i] == PieceStatus.HAVE) {
                 bitSet.set(i);
+                j++;
             }
         }
+
+        System.out.println("pieces status to bitset: " + pieceSize + " in j times: " + j);
 
         return bitSet;
     }

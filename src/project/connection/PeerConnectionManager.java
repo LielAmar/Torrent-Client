@@ -59,6 +59,7 @@ public class PeerConnectionManager extends PeerConnection {
             super.state.unlockHandshake();
 
             // Create bitfield packet to send
+            System.out.println("creating bitfield packet:");
             BitFieldPacket bitFieldPacket = new BitFieldPacket();
             bitFieldPacket.setPayload(PeerProcess.config.piecesStatusToBitset());
             this.outgoingMessageQueue.put(bitFieldPacket);
@@ -94,6 +95,7 @@ public class PeerConnectionManager extends PeerConnection {
     }
 
     private void receivedBitfield(BitFieldPacket packet) {
+        System.out.println("bitfield packet payload length: " + packet.getPayload().length());
         this.state.getPeer().setBitfield(packet.getPayload());
     }
 }
