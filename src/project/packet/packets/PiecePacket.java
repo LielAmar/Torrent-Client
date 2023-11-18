@@ -95,13 +95,13 @@ public class PiecePacket extends Packet {
 
         // Parse the piece index
         ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(PIECE_INDEX_FIELD_LENGTH)
-                .put(payload,  LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
+                .put(payload, TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
         pieceIndexBuffer.rewind();
         this.pieceIndex = pieceIndexBuffer.getInt();
 
         // Parse the piece content
         this.pieceContent = new byte[contentLength];
-        System.arraycopy(payload, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH,
+        System.arraycopy(payload, TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH,
                 this.pieceContent, 0, contentLength);
 
         return true;

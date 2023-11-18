@@ -84,7 +84,7 @@ public class RequestPacket extends Packet {
 
         // Parse the piece index
         ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(PIECE_INDEX_FIELD_LENGTH)
-                .put(payload,  LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
+                .put(payload,  TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
         pieceIndexBuffer.rewind();
         this.pieceIndex = pieceIndexBuffer.getInt();
 

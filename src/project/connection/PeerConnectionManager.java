@@ -172,7 +172,6 @@ public class PeerConnectionManager extends PeerConnection {
             if(local[pieceId].getStatus() == PieceStatus.NOT_HAVE && remote[pieceId] == PieceStatus.HAVE) {
                 try {
                     this.sendInterested();
-                    this.sendUnchoke(); // TODO: remove this
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -182,6 +181,7 @@ public class PeerConnectionManager extends PeerConnection {
 
         try {
             this.sendNotInterested();
+            this.sendUnchoke(); // TODO: remove this
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
