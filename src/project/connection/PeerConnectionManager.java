@@ -23,7 +23,7 @@ public class PeerConnectionManager extends PeerConnection {
 
     private final PeerConnectionSender sender;
     private final PeerConnectionListener listener;
-    private boolean intrested = false;
+    private boolean interested = false;
 
     public PeerConnectionManager(Socket connection, ConnectionState state) {
         super(connection, state);
@@ -103,11 +103,11 @@ public class PeerConnectionManager extends PeerConnection {
     }
 
     private void handleIntersted() {
-        this.intrested = true;
+        this.interested = true;
     }
 
     private void handleNotIntersted() {
-        this.intrested = false;
+        this.interested = false;
     }
 
 
@@ -303,11 +303,11 @@ public class PeerConnectionManager extends PeerConnection {
         }
     }
 
-    public boolean isIntrested() {
-        return intrested;
+    public boolean isInterested() {
+        return interested;
     }
 
-    public void setIntrested(boolean intrested) {
-        this.intrested = intrested;
+    public void setInterested(boolean interested) {
+        this.interested = interested;
     }
 }

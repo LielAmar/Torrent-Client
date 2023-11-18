@@ -168,8 +168,7 @@ public class PeerProcess {
         if(hasFile) {
             try {
                 // Read the local file's bytes, and set all pieces to HAVE with their content
-                Path fileLocation = Paths.get("RunDir/peer_" + localPeerId + File.separator + PeerProcess.config.getFileName());
-                byte[] data = Files.readAllBytes(fileLocation);
+                byte[] data = Files.readAllBytes(new File("RunDir/peer_" + localPeerId + File.separator + PeerProcess.config.getFileName()).toPath());
 
                 // Set all local pieces to HAVE and set their content
                 for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
