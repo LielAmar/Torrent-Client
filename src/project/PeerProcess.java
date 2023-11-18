@@ -102,7 +102,7 @@ public class PeerProcess {
                 } else {
                     // If the current peer has the file, load the file into its local piece list
                     if(Integer.parseInt(values[3]) == 1) {
-                        String filePath = "peer_" + peerId + File.separator + PeerProcess.config.getFileName();
+                        String filePath = "RunDir/peer_" + peerId + File.separator + PeerProcess.config.getFileName();
 
                         try (RandomAccessFile file = new RandomAccessFile(filePath, "r")) {
                             byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
@@ -114,6 +114,10 @@ public class PeerProcess {
                             }
                         } catch (FileNotFoundException exception) {
                             exception.printStackTrace();
+                        }
+                    } else {
+                        for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
+                            PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.NOT_HAVE, null);
                         }
                     }
 
