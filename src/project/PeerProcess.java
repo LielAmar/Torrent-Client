@@ -17,8 +17,8 @@ import java.util.stream.Stream;
 
 public class PeerProcess {
 
-    private final static String COMMON_CONFIG_FILE = "Common.cfg";
-    private final static String PEER_INFO_CONFIG_FILE = "PeerInfo.cfg";
+    private final static String COMMON_CONFIG_FILE = "RunDir/Common.cfg";
+    private final static String PEER_INFO_CONFIG_FILE = "RunDir/PeerInfo.cfg";
 
     public static Configuration config; // TODO: might wanna change config to not be static somehow...
     public static LocalPeerManager localPeerManager;
@@ -94,7 +94,7 @@ public class PeerProcess {
                     String hostname = values[1];
 
                     pendingConnections.add(new Triplet<>(peerId, hostname, port.get()));
-                } else {
+                } else if(peerId == localPeerId) {
                     boolean hasFile = Integer.parseInt(values[3]) == 1;
 
                     loadLocalPieces(hasFile);
@@ -168,7 +168,8 @@ public class PeerProcess {
         if(hasFile) {
             try {
                 // Read the local file's bytes, and set all pieces to HAVE with their content
-                byte[] data = Files.readAllBytes(new File("RunDir/peer_" + localPeerId + File.separator + PeerProcess.config.getFileName()).toPath());
+                Path path = Paths.get("RunDir" + File.separator + "peer_" + localPeerId + File.separator + PeerProcess.config.getFileName());
+                byte[] data = Files.readAllBytes(path);
 
                 // Set all local pieces to HAVE and set their content
                 for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
