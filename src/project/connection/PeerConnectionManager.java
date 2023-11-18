@@ -139,9 +139,11 @@ public class PeerConnectionManager extends PeerConnection {
 
         PeerProcess.localPeerManager.setLocalPiece(pieceIndex, PieceStatus.HAVE, pieceContent);
 
-        System.out.println("[RECEIVER] Received piece with index " + packet.getPieceIndex());
-        System.out.println("   The piece content is: " + packet.getPieceContent().toString());
-        System.out.println("   or in bits " + BitSet.valueOf(packet.getPieceContent()));
+        if(packet.getPieceIndex() > 1470) {
+            System.out.println("[RECEIVER] Received piece with index " + packet.getPieceIndex());
+            System.out.println("   The piece content is: " + packet.getPieceContent().toString());
+            System.out.println("   or in bits " + BitSet.valueOf(packet.getPieceContent()));
+        }
 
         try {
             // TODO: remove this code below
@@ -231,8 +233,11 @@ public class PeerConnectionManager extends PeerConnection {
 
     private void sendPiece(int pieceIndex, byte[] piece) throws InterruptedException {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Piece packet to send (piece index: " + pieceIndex + ")");
-        System.out.println("   The piece content is: " + piece.toString());
-        System.out.println("   or in bits " + BitSet.valueOf(piece));
+
+        if(pieceIndex > 1470) {
+            System.out.println("   The piece content is: " + piece.toString());
+            System.out.println("   or in bits " + BitSet.valueOf(piece));
+        }
 
         PiecePacket packet = new PiecePacket();
         packet.setData(pieceIndex, piece);
