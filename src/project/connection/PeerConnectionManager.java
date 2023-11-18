@@ -242,8 +242,6 @@ public class PeerConnectionManager extends PeerConnection {
     }
 
     private void sendRequest() throws InterruptedException {
-        System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Request packet to send");
-
         RequestPacket packet = new RequestPacket();
 
         // TODO: change this to be a random piece local doesn't have instead of first piece that local doesn't have.
@@ -260,6 +258,8 @@ public class PeerConnectionManager extends PeerConnection {
         packet.setData(desiredPieceIndex);
 
         if(desiredPieceIndex != -1) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Request packet to send (requesting piece " + desiredPieceIndex + ")");
+
             this.outgoingMessageQueue.put(packet);
         }
     }
