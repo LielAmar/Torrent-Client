@@ -1,5 +1,8 @@
 package project.connection;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.Socket;
 
 import project.PeerProcess;
@@ -136,8 +139,18 @@ public class PeerConnectionManager extends PeerConnection {
         PeerProcess.localPeerManager.setLocalPiece(pieceIndex, PieceStatus.HAVE, pieceContent);
 
         try {
+            // TODO: remove this code below
+            for(int i = 0; i < PeerProcess.localPeerManager.getLocalPieces().length; i++) {
+                if(PeerProcess.localPeerManager.getLocalPieces()[i].getStatus() != PieceStatus.HAVE) {
+                    this.sendRequest();
+                    return;
+                }
+            }
+
+            this.dumpFile();
+
 //            this.sendHave(pieceIndex); // TODO: send have to everyone
-            this.sendRequest();
+//            this.sendRequest();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -261,6 +274,26 @@ public class PeerConnectionManager extends PeerConnection {
             System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Request packet to send (requesting piece " + desiredPieceIndex + ")");
 
             this.outgoingMessageQueue.put(packet);
+        }
+    }
+
+    private void dumpFile() {
+        String filePath = "RunDir/peer_" + this.state.getLocalPeerId() + File.separator + PeerProcess.config.getFileName();
+
+        File file = new File(filePath);
+
+        try (FileOutputStream fos = new FileOutputStream(file)) {
+            if (!file.exists()) {
+                file.createNewFile(); // Create the file if it doesn't exist
+            }
+
+            for (Piece piece : PeerProcess.localPeerManager.getLocalPieces()) {
+                fos.write(piece.getContent()); // Write each byte array to the file
+            }
+
+            System.out.println("[FILE DUMPER] Dumped all content into the file");
+        } catch (IOException e) {
+            System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
         }
     }
 }
