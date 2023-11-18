@@ -136,7 +136,7 @@ public class PeerConnectionManager extends PeerConnection {
         PeerProcess.localPeerManager.setLocalPiece(pieceIndex, PieceStatus.HAVE, pieceContent);
 
         try {
-            this.sendHave(pieceIndex); // TODO: send have to everyone
+//            this.sendHave(pieceIndex); // TODO: send have to everyone
             this.sendRequest();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
