@@ -114,15 +114,27 @@ public class PeerProcess {
                     if(Integer.parseInt(values[3]) == 1) {
                         String filePath = "RunDir/peer_" + peerId + File.separator + PeerProcess.config.getFileName();
 
-                        try (RandomAccessFile file = new RandomAccessFile(filePath, "r")) {
-                            byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
+                        String testFilePath = "RunDir/peer_" + peerId + File.separator + "test.jpg";
+                        File testFile = new File(filePath);
 
-                            for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
-                                int bytesRead = file.read(buffer);
-
-                                PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
+                        try (FileOutputStream fos = new FileOutputStream(testFile)) {
+                            if (!testFile.exists()) {
+                                testFile.createNewFile(); // Create the file if it doesn't exist
                             }
-                        } catch (FileNotFoundException exception) {
+
+                            try (RandomAccessFile file = new RandomAccessFile(filePath, "r")) {
+                                byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
+
+                                for (int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
+                                    int bytesRead = file.read(buffer);
+
+                                    PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
+                                    fos.write(buffer); // Write each byte array to the file
+                                }
+                            } catch (FileNotFoundException exception) {
+                                exception.printStackTrace();
+                            }
+                        } catch(FileNotFoundException exception) {
                             exception.printStackTrace();
                         }
                     } else {
