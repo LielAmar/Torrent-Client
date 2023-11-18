@@ -115,10 +115,20 @@ public class PeerProcess {
                     // If the current peer has the file, load the file into its local piece list
                     // Otherwise, set all pieces to not have
                     if(Integer.parseInt(values[3]) == 1) {
-                        String filePath = "RunDir/peer_" + peerId + File.separator + PeerProcess.config.getFileName();
-                        File file = new File(filePath);
+                        byte[] bytes = {};
 
-                        byte[] bytes = Files.readAllBytes(file.toPath());
+                        try {
+                            String filePath = "RunDir/peer_" + peerId + File.separator + PeerProcess.config.getFileName();
+                            File file = new File(filePath);
+                            bytes = new byte[(int) file.length()];
+                            InputStream is = new FileInputStream(file);
+                            is.read(bytes);
+                            is.close();
+                        } catch (FileNotFoundException e) {
+                            e.printStackTrace();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
 
                         for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
                             byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
