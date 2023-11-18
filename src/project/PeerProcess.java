@@ -130,9 +130,14 @@ public class PeerProcess {
                             e.printStackTrace();
                         }
 
+                        System.out.println(bytes.length);
+
                         for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
-                            byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
-                            System.arraycopy(bytes, i * PeerProcess.config.getPieceSize(), buffer, 0, PeerProcess.config.getPieceSize());
+                            int pieceSize = Math.min(PeerProcess.config.getPieceSize(), PeerProcess.config.getFileSize() - i * PeerProcess.config.getPieceSize());
+                            byte[] buffer = new byte[pieceSize];
+                            System.out.println(i * PeerProcess.config.getPieceSize());
+
+                            System.arraycopy(bytes, i * PeerProcess.config.getPieceSize(), buffer, 0, buffer.length);
                             PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
                         }
 
