@@ -1,11 +1,14 @@
 package project;
 
 import project.connection.piece.PieceStatus;
+import project.utils.Triplet;
 
 import java.io.*;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 
 public class PeerProcess {
 
@@ -85,6 +88,8 @@ public class PeerProcess {
         try (BufferedReader br = new BufferedReader(new FileReader((new File(PEER_INFO_CONFIG_FILE)).getAbsolutePath()))) {
             String line;
 
+            List<Triplet<Integer, String, Integer>> pendingConnections = new ArrayList<>();
+
             // Go over all peers preceding current peer and create a connection with them
             // Once reaching current peer, open a socket server to listen to future connections with future peers
             while ((line = br.readLine()) != null) {
@@ -93,14 +98,19 @@ public class PeerProcess {
                 int peerId = Integer.parseInt(values[0]);
                 int port = Integer.parseInt(values[2]);
 
-                // Peers previous to local peer
+                // Save connection information to peers previous to local peer
                 if (peerId < localPeerId) {
                     String hostname = values[1];
 
-                    connectToPeer(peerId, hostname, port);
-                // Local peer
-                } else {
+                    pendingConnections.add(new Triplet<>(peerId, hostname, port));
+                }
+
+                // Once reached local peer id, set its file information, open all connections to previous peers and
+                // start listening to new peers connections
+                if(peerId == localPeerId) {
+
                     // If the current peer has the file, load the file into its local piece list
+                    // Otherwise, set all pieces to not have
                     if(Integer.parseInt(values[3]) == 1) {
                         String filePath = "RunDir/peer_" + peerId + File.separator + PeerProcess.config.getFileName();
 
@@ -121,9 +131,15 @@ public class PeerProcess {
                         }
                     }
 
+                    // Connect to all previous peers
+                    for(Triplet<Integer, String, Integer> triplet : pendingConnections) {
+                        connectToPeer(triplet.getFirst(), triplet.getSecond(), triplet.getThird());
+                    }
+
                     // Start listening to incoming connections
                     listenToIncomingConnections(port);
                 }
+
             }
         } catch (IOException exception) {
             exception.printStackTrace();
