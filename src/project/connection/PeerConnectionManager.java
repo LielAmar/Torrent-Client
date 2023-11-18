@@ -13,6 +13,7 @@ import project.packet.Packet;
 import project.packet.PacketType;
 import project.packet.packets.*;
 
+import java.util.Base64;
 import java.util.BitSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -141,8 +142,7 @@ public class PeerConnectionManager extends PeerConnection {
 
         if(packet.getPieceIndex() > 1470) {
             System.out.println("[RECEIVER] Received piece with index " + packet.getPieceIndex());
-            System.out.println("   The piece content is: " + packet.getPieceContent().toString());
-            System.out.println("   or in bits " + BitSet.valueOf(packet.getPieceContent()));
+            System.out.println("   or in bits " + Base64.getEncoder().encodeToString(packet.getPieceContent()));
         }
 
         try {
@@ -235,8 +235,7 @@ public class PeerConnectionManager extends PeerConnection {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Piece packet to send (piece index: " + pieceIndex + ")");
 
         if(pieceIndex > 1470) {
-            System.out.println("   The piece content is: " + piece.toString());
-            System.out.println("   or in bits " + BitSet.valueOf(piece));
+            System.out.println("   or in bits " + Base64.getEncoder().encodeToString(piece));
         }
 
         PiecePacket packet = new PiecePacket();
