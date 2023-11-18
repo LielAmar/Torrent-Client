@@ -1,5 +1,6 @@
 package project;
 
+import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
 import project.utils.Triplet;
 
@@ -123,7 +124,21 @@ public class PeerProcess {
                             byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
                             System.arraycopy(bytes, i * PeerProcess.config.getPieceSize(), buffer, 0, PeerProcess.config.getPieceSize());
                             PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
+                        }
 
+                        File testFile = new File("RunDir/peer_" + peerId + File.separator + "test.jpg");
+                        try (FileOutputStream fos = new FileOutputStream(testFile)) {
+                            if (!testFile.exists()) {
+                                testFile.createNewFile(); // Create the file if it doesn't exist
+                            }
+
+                            for (Piece piece : PeerProcess.localPeerManager.getLocalPieces()) {
+                                fos.write(piece.getContent()); // Write each byte array to the file
+                            }
+
+                            System.out.println("[FILE DUMPER] Dumped all content into the file");
+                        } catch (IOException e) {
+                            System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
                         }
                     } else {
                         for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
