@@ -1,7 +1,5 @@
 package project;
 
-import java.util.BitSet;
-
 public class Configuration {
 
     private final int numberOfPreferredNeighbors;
@@ -11,9 +9,7 @@ public class Configuration {
     private final int fileSize;
     private final int pieceSize;
 
-    // TODO: move this somewhere else. This is the local bitset that indicates which file parts this peer already has
-    private final PieceStatus[] localPieces; // TODO: Change it to an atomic bit set: https://stackoverflow.com/questions/12424633/atomicbitset-implementation-for-java
-                                      // so all threads can use it safely
+    private final int numberOfPieces;
 
     public Configuration(int numberOfPreferredNeighbors, int unchokingInterval,
                          int optimisticUnchokingInterval, String fileName, int fileSize, int pieceSize) {
@@ -25,11 +21,7 @@ public class Configuration {
         this.fileSize = fileSize;
         this.pieceSize = pieceSize;
 
-        System.out.println("[DEBUG] fileSize: " +fileSize);
-        System.out.println("[DEBUG] pieceSize: " + pieceSize);
-        System.out.println("[DEBUG] number of pieces: " + (int) Math.ceil((double) this.fileSize / this.pieceSize));
-
-        this.localPieces = new PieceStatus[(int) Math.ceil((double) this.fileSize / this.pieceSize)];
+        this.numberOfPieces = (int) Math.ceil((double) this.fileSize / this.pieceSize);
     }
 
 
@@ -57,38 +49,18 @@ public class Configuration {
         return pieceSize;
     }
 
-
-    public PieceStatus[] getLocalPieces() {
-        return this.localPieces;
-    }
-
-    public void setLocalPiece(int index, PieceStatus status) {
-        this.localPieces[index] = status;
-    }
-
-    public BitSet piecesStatusToBitset() {
-        BitSet bitSet = new BitSet(this.localPieces.length);
-
-        int j = 0;
-        for(int i = 0; i < this.localPieces.length; i++) {
-            if(this.localPieces[i] == PieceStatus.HAVE) {
-                bitSet.set(i);
-                j++;
-            }
-        }
-
-        return bitSet;
+    public int getNumberOfPieces() {
+        return numberOfPieces;
     }
 
 
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append("# Prefered Neighbors: " + this.numberOfPreferredNeighbors + "\n");
-        sb.append("Unchoking Interval: " + this.unchokingInterval + "\n");
-        sb.append("Optimistic Unchoking: " + this.optimisticUnchokingInterval + "\n");
-        sb.append("File Name: " + this.fileName + "\n");
-        sb.append("File Size: " + this.fileSize + "\n");
-        sb.append("Piece Size: " + this.pieceSize + "\n");
-        return sb.toString();
+        return "[CONFIGURATION] - Number of Preferred Neighbors: " + this.getNumberOfPreferredNeighbors() + "\n" +
+                "[CONFIGURATION] - Unchoking Interval: " + this.getUnchokingInterval() + "\n" +
+                "[CONFIGURATION] - Optimistic Unchoking Interval: " + this.getOptimisticUnchokingInterval() + "\n" +
+                "[CONFIGURATION] - File Name: " + this.getFileName() + "\n" +
+                "[CONFIGURATION] - File Size: " + this.getFileSize() + "\n" +
+                "[CONFIGURATION] - Piece Size: " + this.getPieceSize() + "\n" +
+                "[CONFIGURATION] - Number of Pieces: " + this.getNumberOfPieces() + "\n";
     }
 }

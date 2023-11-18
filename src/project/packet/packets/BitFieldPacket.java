@@ -12,75 +12,83 @@ public class BitFieldPacket extends Packet {
     /*
         BitField Packet Structure
 
-        + - + - + - + - + - + - + - + - + - + - + - + -
-        | Packet Length | Packet Type | Packet Payload |
-        + - + - + - + - + - + - + - + - + - + - + - + -
+        + - + - + - + - + - + - + - + - + - + - + - +
+        | Packet Length | Packet Type | Packet Data |
+        + - + - + - + - + - + - + - + - + - + - + - +
 
         Where:
         - Packet Length  = 4 bytes
         - Packet Type    = 1 byte
-        - Packet Payload = ~Number of pieces
+        - Packet Data    = x bytes
      */
 
     protected static final int LENGTH_FIELD_LENGTH = 4;
     protected static final int TYPE_FIELD_LENGTH = 1;
 
-    private BitSet payload;
+    private BitSet bitfield;
 
     public BitFieldPacket() {
         super(PacketType.BITFIELD);
+
+        this.bitfield = null;
     }
 
 
-    public void setPayload(BitSet payload) {
-        this.payload = payload;
+    public void setData(BitSet bitfield) {
+        this.bitfield = bitfield;
     }
 
-    public BitSet getPayload() {
-        return this.payload;
+    public BitSet getBitfield() {
+        return this.bitfield;
     }
 
 
     @Override
     public byte[] build() throws NetworkException {
-        if(this.payload == null) {
-            throw new NetworkException("[BITFIELD PACKET] trying to build a packet with null payload");
+        if(this.bitfield == null) {
+            throw new NetworkException("[BITFIELD PACKET] trying to build a packet with invalid data");
         }
 
-        // Build the message that would be sent over connection
-        byte[] payloadBytes = this.payload.toByteArray();
+        byte[] bitfieldBytes = this.bitfield.toByteArray();
 
-        byte[] message = new byte[LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + payloadBytes.length];
+        int messageLength = LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + bitfieldBytes.length;
+        int payloadLength = TYPE_FIELD_LENGTH + bitfieldBytes.length;
+
+        byte[] message = new byte[messageLength];
 
         // Set first 4 bytes: the length of the payload + the packet type field
-        System.arraycopy(ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(TYPE_FIELD_LENGTH + payloadBytes.length).array(), 0,
-                message, 0, LENGTH_FIELD_LENGTH);
+        System.arraycopy(
+                ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(payloadLength).array(), 0,
+                message, 0,
+                LENGTH_FIELD_LENGTH);
 
-        // Set the packet type field
+        // Set next 1 byte: the packet type
         message[4] = super.type.getTypeId();
 
-        // Set the packet's payload data
-        System.arraycopy(payloadBytes, 0, message, 5, payloadBytes.length);
+        // Set next x bytes: The piece content
+        System.arraycopy(bitfieldBytes, 0,
+                message, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH,
+                bitfieldBytes.length);
 
         return message;
     }
 
     @Override
-    public boolean parse(byte[] message) {
-        // TODO: change all parses to assume payload doesn't have the length (first 4 bytes).
-        // This means that the given payload[0] is the message type
-        if(message[0] != super.type.getTypeId()) {
+    public boolean parse(byte[] payload) {
+        if(payload[0] != super.type.getTypeId()) {
             return false;
         }
 
-        int length = message.length;
-        System.out.println("[DEBUG] length: " + length);
-        int payloadLength = length - 1;
-        System.out.println("[DEBUG] payload length: " + payloadLength);
+        // Calculate the packet's length
+        int dataLength = payload.length - TYPE_FIELD_LENGTH;
 
-        // TODO: make sure this is a correct way to parse
-        this.payload = BitSet.valueOf(ByteBuffer.allocate(payloadLength).put(message,
-                TYPE_FIELD_LENGTH, payloadLength).rewind());
+        // Parse the data
+        this.bitfield = BitSet.valueOf(
+                ByteBuffer.allocate(dataLength)
+                        .put(payload, TYPE_FIELD_LENGTH, dataLength)
+                        .rewind()
+        );
+
         return true;
     }
 }

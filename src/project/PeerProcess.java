@@ -1,15 +1,9 @@
 package project;
 
-import project.connection.ConnectionState;
-import project.connection.PeerConnectionManager;
-import project.peer.Peer;
-import project.peer.PeerInfoList;
+import project.connection.piece.PieceStatus;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.File;
+import java.io.*;
 
-import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
@@ -18,20 +12,24 @@ public class PeerProcess {
     private final static String COMMON_CONFIG_FILE = "Common.cfg";
     private final static String PEER_INFO_CONFIG_FILE = "PeerInfo.cfg";
 
-    public static Configuration config;
-    public static PeerInfoList peerInfoList;
+    public static Configuration config; // TODO: might wanna change config to not be static somehow...
+    public static LocalPeerManager localPeerManager;
+
 
     public static void main(String[] args) {
         if (args.length != 1) {
-            System.err.println("Please specify a peerId!");
+            System.err.println("Please specify a Peer ID!");
             return;
         }
 
+        // Set up the configuration
         setupConfiguration();
 
+        // Set up the local peer manager
         int localPeerId = Integer.parseInt(args[0]);
-        PeerProcess.peerInfoList = new PeerInfoList(localPeerId);
+        PeerProcess.localPeerManager = new LocalPeerManager(localPeerId, PeerProcess.config.getNumberOfPieces());
 
+        // Set up all peer connections
         setupPeerConnections(localPeerId);
     }
 
@@ -40,6 +38,7 @@ public class PeerProcess {
      * Parses the Common.cfg file and sets up the configuration
      */
     private static void setupConfiguration() {
+        System.out.println("[CONFIGURATION] Setting up the configuration");
         try (BufferedReader br = new BufferedReader(new FileReader((new File(COMMON_CONFIG_FILE)).getAbsolutePath()))) {
             StringBuilder sb = new StringBuilder();
             String line;
@@ -67,10 +66,12 @@ public class PeerProcess {
                     Integer.parseInt(rows[5].split(" ")[1])  // piece size
             );
 
-            System.out.println("[CONFIG] Created process configuration!");
+            System.out.println(PeerProcess.config);
         } catch (IOException exception) {
             exception.printStackTrace();
         }
+
+        System.out.println("[CONFIGURATION] Finished setting up the configuration\n");
     }
 
     /**
@@ -79,6 +80,8 @@ public class PeerProcess {
      * @param localPeerId   The ID of the local peer process
      */
     private static void setupPeerConnections(int localPeerId) {
+        System.out.println("[CONNECTIONS] Setting up peer connections");
+
         try (BufferedReader br = new BufferedReader(new FileReader((new File(PEER_INFO_CONFIG_FILE)).getAbsolutePath()))) {
             String line;
 
@@ -90,19 +93,31 @@ public class PeerProcess {
                 int peerId = Integer.parseInt(values[0]);
                 int port = Integer.parseInt(values[2]);
 
+                // Peers previous to local peer
                 if (peerId < localPeerId) {
                     String hostname = values[1];
 
                     connectToPeer(peerId, hostname, port);
+                // Local peer
                 } else {
-                    // TODO: maybe move this outside of the while loop? it doesnt feel right to have this loop sitting unfinished when we call another function that just starts and infinite loop
-                    // If the current peer has the file, make sure to put it in the config
+                    // If the current peer has the file, load the file into its local piece list
                     if(Integer.parseInt(values[3]) == 1) {
-                        for(int i = 0; i < PeerProcess.config.getLocalPieces().length; i++) {
-                            PeerProcess.config.setLocalPiece(i, PieceStatus.HAVE);
+                        String filePath = "peer_" + peerId + File.separator + PeerProcess.config.getFileName();
+
+                        try (RandomAccessFile file = new RandomAccessFile(filePath, "r")) {
+                            byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
+
+                            for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
+                                int bytesRead = file.read(buffer);
+
+                                PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
+                            }
+                        } catch (FileNotFoundException exception) {
+                            exception.printStackTrace();
                         }
                     }
 
+                    // Start listening to incoming connections
                     listenToIncomingConnections(port);
                 }
             }
@@ -120,16 +135,13 @@ public class PeerProcess {
      */
     private static void connectToPeer(int peerId, String hostname, int port) {
         try {
-            System.out.println("[CLIENT] Creating connection to peerId: " + peerId + " at host " + hostname + ":" + port);
+            System.out.println("[CLIENT] Attempting to connect to peer " + peerId + " at host " + hostname + ":" + port);
 
             // Create a socket connection to the given peer and then create two peer connections:
             // 1. A listener connection for listening to incoming messages
             // 2. A sender connection for sending outgoing messages
             Socket socket = new Socket(hostname, port);
-
-            ConnectionState state = PeerProcess.peerInfoList.connectToNewPeer(peerId);
-            PeerConnectionManager connectionManager = new PeerConnectionManager(socket, state);
-            connectionManager.start();  
+            PeerProcess.localPeerManager.connectToNewPeer(peerId, socket).start();
         } catch (IOException e) {
             // TODO: Close sockets
             throw new RuntimeException(e);
@@ -147,16 +159,13 @@ public class PeerProcess {
                 System.out.println("[SERVER] Listening to connections from peers on port " + port);
 
                 while (true) {
+                    System.out.println("[SERVER] Attempting to connect to peer " + "-1" + " at host " + "unknown" + ":" + "unknown");
+
                     // Create a socket connection to the given peer and then create two peer connections:
                     // 1. A listener connection for listening to incoming messages
                     // 2. A sender connection for sending outgoing messages
                     Socket socket = listener.accept();
-                    ConnectionState state = peerInfoList.connectToNewPeer();
-
-                    PeerConnectionManager connectionManager = new PeerConnectionManager(socket, state);
-                    connectionManager.start();  
-
-                    System.out.println("[SERVER] Received a connection request from another peer!");
+                    PeerProcess.localPeerManager.connectToNewPeer(socket).start();
                 }
             }
         } catch (IOException e) {

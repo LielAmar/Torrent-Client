@@ -11,48 +11,63 @@ public class RequestPacket extends Packet {
     /*
         Request Packet Structure
 
-        + - + - + - + - + - + - + - + - + - + - + - + -
-        | Packet Length | Packet Type | Packet Payload |
-        + - + - + - + - + - + - + - + - + - + - + - + -
+        + - + - + - + - + - + - + - + - + - + - + - +
+        | Packet Length | Packet Type | Packet Data |
+        + - + - + - + - + - + - + - + - + - + - + - +
 
         Where:
         - Packet Length  = 4 bytes
         - Packet Type    = 1 byte
-        - Packet Payload = 4 + Piece size
+        - Packet Data    = 4 bytes
      */
 
     protected static final int LENGTH_FIELD_LENGTH = 4;
     protected static final int TYPE_FIELD_LENGTH = 1;
+    protected static final int PIECE_INDEX_FIELD_LENGTH = 4;
 
-    protected static final int PAYLOAD_FIELD_LENGTH = 4;
-
-    private byte[] payload;
+    private int pieceIndex;
 
     public RequestPacket() {
         super(PacketType.REQUEST);
+
+        this.pieceIndex = -1;
     }
 
-    public void setPayload(byte[] payload) {
-        this.payload = payload;
+
+    public void setData(int pieceIndex) {
+        this.pieceIndex = pieceIndex;
     }
+
+    public int getPieceIndex() {
+        return this.pieceIndex;
+    }
+
 
     @Override
     public byte[] build() throws NetworkException {
-        if(this.payload == null) {
-            throw new NetworkException("[REQUEST PACKET] trying to build a packet with null payload");
+        if(this.pieceIndex == -1) {
+            throw new NetworkException("[REQUEST PACKET] trying to build a packet with invalid data");
         }
 
-        byte[] message = new byte[LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + PAYLOAD_FIELD_LENGTH];
+        int messageLength = LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH;
+        int payloadLength = TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH;
+
+        byte[] message = new byte[messageLength];
 
         // Set first 4 bytes: the length of the payload + the packet type field
-        System.arraycopy(ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(TYPE_FIELD_LENGTH + PAYLOAD_FIELD_LENGTH).array(), 0,
-                message, 0, LENGTH_FIELD_LENGTH);
+        System.arraycopy(
+                ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(payloadLength).array(), 0,
+                message, 0,
+                LENGTH_FIELD_LENGTH);
 
-        // Set the packet type field
-        message[4] = super.type.getTypeId();
+        // Set next 1 byte: the packet type
+        message[LENGTH_FIELD_LENGTH] = super.type.getTypeId();
 
-        // Set the packet's payload data
-        System.arraycopy(this.payload, 0, message, 5, PAYLOAD_FIELD_LENGTH);
+        // Set next 4 bytes: the piece index
+        System.arraycopy(
+                ByteBuffer.allocate(PIECE_INDEX_FIELD_LENGTH).putInt(this.pieceIndex).array(), 0,
+                message, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH,
+                PIECE_INDEX_FIELD_LENGTH);
 
         return message;
     }
@@ -63,10 +78,16 @@ public class RequestPacket extends Packet {
             return false;
         }
 
-        // TODO: make sure this is a correct way to parse
-        this.payload = new byte[PAYLOAD_FIELD_LENGTH];
-        System.arraycopy(payload, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH,
-                this.payload, 0, PAYLOAD_FIELD_LENGTH);
+        // Calculate the packet's length
+        int dataLength = payload.length - TYPE_FIELD_LENGTH;
+        int contentLength = dataLength - PIECE_INDEX_FIELD_LENGTH;
+
+        // Parse the piece index
+        ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(PIECE_INDEX_FIELD_LENGTH)
+                .put(payload,  LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
+        pieceIndexBuffer.rewind();
+        this.pieceIndex = pieceIndexBuffer.getInt();
+
         return true;
     }
 }

@@ -11,46 +11,74 @@ public class PiecePacket extends Packet {
     /*
         Piece Packet Structure
 
-        + - + - + - + - + - + - + - + - + - + - + - + -
-        | Packet Length | Packet Type | Packet Payload |
-        + - + - + - + - + - + - + - + - + - + - + - + -
+        + - + - + - + - + - + - + - + - + - + - + - +
+        | Packet Length | Packet Type | Packet Data |
+        + - + - + - + - + - + - + - + - + - + - + - +
 
         Where:
-        - Packet Length  = 4 bytes
-        - Packet Type    = 1 byte
-        - Packet Payload = 4 + Piece size
+        - Packet Length = 4 bytes
+        - Packet Type   = 1 byte
+        - Packet Data   = 4 + x bytes (Piece Index + Piece Content)
      */
 
     protected static final int LENGTH_FIELD_LENGTH = 4;
     protected static final int TYPE_FIELD_LENGTH = 1;
+    protected static final int PIECE_INDEX_FIELD_LENGTH = 4;
 
-    private byte[] payload;
+    private int pieceIndex;
+    private byte[] pieceContent;
 
     public PiecePacket() {
         super(PacketType.PIECE);
+
+        this.pieceIndex = -1;
+        this.pieceContent = null;
     }
 
-    public void setPayload(byte[] payload) {
-        this.payload = payload;
+    public void setData(int pieceIndex, byte[] pieceContent) {
+        this.pieceIndex = pieceIndex;
+        this.pieceContent = pieceContent;
     }
+
+    public byte[] getPieceContent() {
+        return this.pieceContent;
+    }
+
+    public int getPieceIndex() {
+        return this.pieceIndex;
+    }
+
 
     @Override
     public byte[] build() throws NetworkException {
-        if(this.payload == null) {
-            throw new NetworkException("[PIECE PACKET] trying to build a packet with null payload");
+        if(this.pieceContent == null || this.pieceIndex == -1) {
+            throw new NetworkException("[PIECE PACKET] trying to build a packet with invalid data");
         }
 
-        byte[] message = new byte[LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + this.payload.length];
+        int messageLength = LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH + this.pieceContent.length;
+        int payloadLength = TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH + this.pieceContent.length;
+
+        byte[] message = new byte[messageLength];
 
         // Set first 4 bytes: the length of the payload + the packet type field
-        System.arraycopy(ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(TYPE_FIELD_LENGTH + this.payload.length).array(), 0,
-                message, 0, LENGTH_FIELD_LENGTH);
+        System.arraycopy(
+                ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(payloadLength).array(), 0,
+                message, 0,
+                LENGTH_FIELD_LENGTH);
 
-        // Set the packet type field
-        message[4] = super.type.getTypeId();
+        // Set next 1 byte: the packet type
+        message[LENGTH_FIELD_LENGTH] = super.type.getTypeId();
 
-        // Set the packet's payload data
-        System.arraycopy(this.payload, 0, message, 5, this.payload.length);
+        // Set next 4 bytes: the piece index
+        System.arraycopy(
+                ByteBuffer.allocate(PIECE_INDEX_FIELD_LENGTH).putInt(this.pieceIndex).array(), 0,
+                message, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH,
+                PIECE_INDEX_FIELD_LENGTH);
+
+        // Set next x bytes: the piece content
+        System.arraycopy(this.pieceContent, 0,
+                message, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH,
+                this.pieceContent.length);
 
         return message;
     }
@@ -61,15 +89,21 @@ public class PiecePacket extends Packet {
             return false;
         }
 
-        ByteBuffer lengthBuffer = ByteBuffer.allocate(LENGTH_FIELD_LENGTH).put(payload,  0, LENGTH_FIELD_LENGTH);
-        lengthBuffer.rewind();
-        int length = lengthBuffer.getInt();
-        int payloadLength = length - 1;
+        // Calculate the packet's length
+        int dataLength = payload.length - TYPE_FIELD_LENGTH;
+        int contentLength = dataLength - PIECE_INDEX_FIELD_LENGTH;
 
-        // TODO: make sure this is a correct way to parse
-        this.payload = new byte[payloadLength];
-        System.arraycopy(payload, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH,
-                this.payload, 0, payloadLength);
+        // Parse the piece index
+        ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(PIECE_INDEX_FIELD_LENGTH)
+                .put(payload,  LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
+        pieceIndexBuffer.rewind();
+        this.pieceIndex = pieceIndexBuffer.getInt();
+
+        // Parse the piece content
+        this.pieceContent = new byte[contentLength];
+        System.arraycopy(payload, LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH + PIECE_INDEX_FIELD_LENGTH,
+                this.pieceContent, 0, contentLength);
+
         return true;
     }
 }

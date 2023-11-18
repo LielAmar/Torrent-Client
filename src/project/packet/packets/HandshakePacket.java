@@ -7,7 +7,10 @@ import java.nio.ByteBuffer;
 
 public class HandshakePacket extends Packet {
 
+    // TODO: rewrite this class
+
     public static final int HANDSHAKE_LENGTH = 32;
+
     protected static final String HANDSHAKE_HEADER = "P2PFILESHARINGPROJ";
     protected static final int HANDSHAKE_ZERO_BITS_LENGTH = 10;
     protected static final int PEER_ID_LENGTH = 4;

@@ -10,14 +10,14 @@ public class UnchokePacket extends Packet{
     /*
         Unchoke Packet Structure
 
-        + - + - + - + - + - + - + - + - + - + - + - + -
-        | Packet Length | Packet Type | Packet Payload |
-        + - + - + - + - + - + - + - + - + - + - + - + -
+        + - + - + - + - + - + - + - + - + - + - + - +
+        | Packet Length | Packet Type | Packet Data |
+        + - + - + - + - + - + - + - + - + - + - + - +
 
         Where:
         - Packet Length  = 4 bytes
         - Packet Type    = 1 byte
-        - Packet Payload = 0
+        - Packet Data    = 0 bytes
      */
 
     protected static final int LENGTH_FIELD_LENGTH = 4;
@@ -29,13 +29,18 @@ public class UnchokePacket extends Packet{
 
     @Override
     public byte[] build() {
-        byte[] message = new byte[LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH];
+        int messageLength = LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH;
+        int payloadLength = TYPE_FIELD_LENGTH;
+
+        byte[] message = new byte[messageLength];
 
         // Set first 4 bytes: the length of the packet type field
-        System.arraycopy(ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(TYPE_FIELD_LENGTH).array(), 0,
-                message, 0, LENGTH_FIELD_LENGTH);
+        System.arraycopy(
+                ByteBuffer.allocate(LENGTH_FIELD_LENGTH).putInt(payloadLength).array(), 0,
+                message, 0,
+                LENGTH_FIELD_LENGTH);
 
-        // Set the packet type field
+        // Set next 1 byte: the packet type
         message[4] = super.type.getTypeId();
 
         return message;

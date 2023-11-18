@@ -1,7 +1,6 @@
 package project.connection;
 
 import project.packet.Packet;
-import project.packet.PacketType;
 import project.packet.packets.*;
 
 import java.io.DataInputStream;
@@ -36,19 +35,19 @@ public class PeerConnectionListener extends PeerConnection {
             this.state.unlockHandshake();
 
             // Start listening to incoming messages
-            while (this.state.getConnectionActive()) {
+            while (this.state.isConnectionActive()) {
                 this.messageQueue.put(listenToMessage());
             }
         } catch (IOException | InterruptedException e) {
             throw new RuntimeException(e);
         } finally {
             try {
-                System.out.println("[LISTENER] Closing connection with peer " + this.state.getPeerId());
+                System.out.println("[LISTENER] Closing connection with peer " + this.state.getRemotePeerId());
 
                 this.in.close();
                 this.connection.close();
             } catch(IOException ioException){
-                System.out.println("[LISTENER] Failed to close connection with peer " + this.state.getPeerId());
+                System.out.println("[LISTENER] Failed to close connection with peer " + this.state.getRemotePeerId());
             }
         }
     }
@@ -63,7 +62,6 @@ public class PeerConnectionListener extends PeerConnection {
             }
         } catch(IOException exception) {
             System.out.println("[DEBUG] Tried to read and failed");
-//            exception.printStackTrace();
         }
 
         return null;

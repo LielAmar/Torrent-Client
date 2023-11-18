@@ -40,7 +40,7 @@ public class PeerConnectionSender extends PeerConnection {
             sendMessage(packet);
 
             // Start sending outgoing messages
-            while (super.state.getConnectionActive()) {
+            while (super.state.isConnectionActive()) {
                 packet = this.messageQueue.take();
                 sendMessage(packet);
             }
@@ -50,12 +50,12 @@ public class PeerConnectionSender extends PeerConnection {
             throw new RuntimeException(e);
         } finally {
             try {
-                System.out.println("[SENDER] Closing connection with peer " + this.state.getPeerId());
+                System.out.println("[SENDER] Closing connection with peer " + this.state.getRemotePeerId());
 
                 this.out.close();
                 this.connection.close();
             } catch (IOException ioException) {
-                System.out.println("[SENDER] Failed to close connection with peer " + this.state.getPeerId());
+                System.out.println("[SENDER] Failed to close connection with peer " + this.state.getRemotePeerId());
             }
         }
     }
@@ -67,8 +67,7 @@ public class PeerConnectionSender extends PeerConnection {
             this.out.write(messageBytes);
             this.out.flush();
 
-            // System.out.println("[SENDER] Sent " + message.getTypeString() + " message:\nBytes: " + Arrays.toString(messageBytes) + "\nString:"+(new String(messageBytes)) + "\nto peer " + this.state.getPeerId());
-            System.out.println("[SENDER] Sent " + message.getTypeString() + " message: " + /*Arrays.toString(messageBytes) */"" + " to peer " + this.state.getPeerId());
+            System.out.println("[SENDER] Sent " + message.getTypeString() + " packet to peer " + this.state.getRemotePeerId());
         } catch(IOException exception){
             exception.printStackTrace();
         }

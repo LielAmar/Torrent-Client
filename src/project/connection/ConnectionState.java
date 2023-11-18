@@ -4,47 +4,75 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import project.peer.Peer;
+import project.connection.piece.PieceStatus;
 
 public class ConnectionState {
 
-    private final Peer peer;
-    private final int localId;
+    private final int localPeerId;
 
-    private AtomicBoolean connectionActive;
-    private Lock handshakeLock;
+    private int remotePeerId;
+    private boolean choked;
+    private PieceStatus[] pieces;
 
-    public ConnectionState(int localId, Peer peer) {
-        this.peer = peer;
-        this.localId = localId;
+    private final AtomicBoolean connectionActive;
+    private final Lock handshakeLock;
+
+    public ConnectionState(int localPeerId, int remotePeerId) {
+        this.localPeerId = localPeerId;
+
+        this.remotePeerId = remotePeerId;
+        this.choked = false;
+        this.pieces = new PieceStatus[0];
 
         this.connectionActive = new AtomicBoolean(true);
         this.handshakeLock = new ReentrantLock();
     }
 
-    public int getLocalId() {
-        return this.localId;
+
+    public int getLocalPeerId() {
+        return this.localPeerId;
     }
 
-    public int getPeerId() {
-        return this.peer.getPeerId();
+
+    public int getRemotePeerId() {
+        return this.remotePeerId;
     }
 
-    public void setPeerId(int newId) {
-        this.peer.setPeerId(newId);
+    public void setPeerId(int remotePeerId) {
+        this.remotePeerId = remotePeerId;
     }
 
-    public Peer getPeer() {
-        return this.peer;
+
+    public boolean isChoked() {
+        return this.choked;
     }
 
-    public boolean getConnectionActive() {
+    public void setChoked(boolean choked) {
+        this.choked = choked;
+    }
+
+
+    public PieceStatus[] getPieces() {
+        return this.pieces;
+    }
+
+    public void setPieces(PieceStatus[] pieces) {
+        this.pieces = pieces;
+    }
+
+    public void updatePiece(int ind) {
+        this.pieces[ind] = PieceStatus.HAVE;
+    }
+
+
+    public boolean isConnectionActive() {
         return this.connectionActive.get();
     }
 
     public void setConnectionActive(boolean state) {
         this.connectionActive.set(state);
     }
+
 
     public void waitForHandshake() {
         this.handshakeLock.lock();
