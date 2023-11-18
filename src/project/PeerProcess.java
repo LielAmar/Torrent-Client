@@ -136,20 +136,20 @@ public class PeerProcess {
                             PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
                         }
 
-                        File testFile = new File("RunDir/peer_" + peerId + File.separator + "test.jpg");
-                        try (FileOutputStream fos = new FileOutputStream(testFile)) {
-                            if (!testFile.exists()) {
-                                testFile.createNewFile(); // Create the file if it doesn't exist
-                            }
-
-                            for (Piece piece : PeerProcess.localPeerManager.getLocalPieces()) {
-                                fos.write(piece.getContent()); // Write each byte array to the file
-                            }
-
-                            System.out.println("[FILE DUMPER] Dumped all content into the file");
-                        } catch (IOException e) {
-                            System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
-                        }
+//                        File testFile = new File("RunDir/peer_" + peerId + File.separator + "test.jpg");
+//                        try (FileOutputStream fos = new FileOutputStream(testFile)) {
+//                            if (!testFile.exists()) {
+//                                testFile.createNewFile(); // Create the file if it doesn't exist
+//                            }
+//
+//                            for (Piece piece : PeerProcess.localPeerManager.getLocalPieces()) {
+//                                fos.write(piece.getContent()); // Write each byte array to the file
+//                            }
+//
+//                            System.out.println("[FILE DUMPER] Dumped all content into the file");
+//                        } catch (IOException e) {
+//                            System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
+//                        }
                     } else {
                         for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
                             PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.NOT_HAVE, null);
