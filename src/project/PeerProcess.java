@@ -1,6 +1,5 @@
 package project;
 
-import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
 import project.utils.Triplet;
 
@@ -8,6 +7,8 @@ import java.io.*;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -114,34 +115,15 @@ public class PeerProcess {
                     // Otherwise, set all pieces to not have
                     if(Integer.parseInt(values[3]) == 1) {
                         String filePath = "RunDir/peer_" + peerId + File.separator + PeerProcess.config.getFileName();
+                        File file = new File(filePath);
 
-                        try (RandomAccessFile file = new RandomAccessFile(filePath, "r")) {
+                        byte[] bytes = Files.readAllBytes(file.toPath());
+
+                        for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
                             byte[] buffer = new byte[PeerProcess.config.getPieceSize()];
+                            System.arraycopy(bytes, i * PeerProcess.config.getPieceSize(), buffer, 0, PeerProcess.config.getPieceSize());
+                            PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
 
-                            for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
-                                int bytesRead = file.read(buffer);
-
-                                PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
-                            }
-                        } catch (FileNotFoundException exception) {
-                            exception.printStackTrace();
-                        }
-
-                        String testFilePath = "RunDir/peer_" + peerId + File.separator + "test.jpg";
-                        File testFile = new File(testFilePath);
-
-                        try (FileOutputStream fos = new FileOutputStream(testFile)) {
-                            if (!testFile.exists()) {
-                                testFile.createNewFile(); // Create the file if it doesn't exist
-                            }
-
-                            for (Piece piece : PeerProcess.localPeerManager.getLocalPieces()) {
-                                fos.write(piece.getContent()); // Write each byte array to the file
-                            }
-
-                            System.out.println("[FILE DUMPER] Dumped all content into the file");
-                        } catch (IOException e) {
-                            System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
                         }
                     } else {
                         for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
