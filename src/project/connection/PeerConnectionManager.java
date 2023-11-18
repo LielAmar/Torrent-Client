@@ -13,6 +13,7 @@ import project.packet.Packet;
 import project.packet.PacketType;
 import project.packet.packets.*;
 
+import java.util.BitSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -138,6 +139,10 @@ public class PeerConnectionManager extends PeerConnection {
 
         PeerProcess.localPeerManager.setLocalPiece(pieceIndex, PieceStatus.HAVE, pieceContent);
 
+        System.out.println("[RECEIVER] Received piece with index " + packet.getPieceIndex());
+        System.out.println("   The piece content is: " + packet.getPieceContent().toString());
+        System.out.println("   or in bits " + BitSet.valueOf(packet.getPieceContent()));
+
         try {
             // TODO: remove this code below
             for(int i = 0; i < PeerProcess.localPeerManager.getLocalPieces().length; i++) {
@@ -225,7 +230,9 @@ public class PeerConnectionManager extends PeerConnection {
     }
 
     private void sendPiece(int pieceIndex, byte[] piece) throws InterruptedException {
-        System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Piece packet to send");
+        System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Piece packet to send (piece index: " + pieceIndex + ")");
+        System.out.println("   The piece content is: " + piece.toString());
+        System.out.println("   or in bits " + BitSet.valueOf(piece));
 
         PiecePacket packet = new PiecePacket();
         packet.setData(pieceIndex, piece);
