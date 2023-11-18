@@ -13,8 +13,6 @@ import project.packet.Packet;
 import project.packet.PacketType;
 import project.packet.packets.*;
 
-import java.util.Base64;
-import java.util.BitSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -25,6 +23,7 @@ public class PeerConnectionManager extends PeerConnection {
 
     private final PeerConnectionSender sender;
     private final PeerConnectionListener listener;
+    private boolean intrested = false;
 
     public PeerConnectionManager(Socket connection, ConnectionState state) {
         super(connection, state);
@@ -93,16 +92,22 @@ public class PeerConnectionManager extends PeerConnection {
         switch (packet.getType()) {
             case CHOKE -> {}
             case UNCHOKE -> handleReceivedUnchoke();
-            case INTERESTED -> {
-//              send have
-            }
-            case NOT_INTERESTED -> {}
+            case INTERESTED -> handleNotIntersted();
+            case NOT_INTERESTED -> handleIntersted();
             case HAVE -> handleReceivedHave((HavePacket)packet);
             case BITFIELD -> handleReceivedBitfield((BitFieldPacket) packet);
             case REQUEST -> handleReceivedRequest((RequestPacket) packet);
             case PIECE -> handleReceivedPiece((PiecePacket) packet);
             default -> {}
         }
+    }
+
+    private void handleIntersted() {
+        this.intrested = true;
+    }
+
+    private void handleNotIntersted() {
+        this.intrested = false;
     }
 
 
@@ -140,13 +145,8 @@ public class PeerConnectionManager extends PeerConnection {
 
         PeerProcess.localPeerManager.setLocalPiece(pieceIndex, PieceStatus.HAVE, pieceContent);
 
-        if(packet.getPieceIndex() > 1470) {
-            System.out.println("[RECEIVER] Received piece with index " + packet.getPieceIndex());
-            System.out.println("   or in bits " + Base64.getEncoder().encodeToString(packet.getPieceContent()));
-        }
-
         try {
-            // TODO: remove this code below
+            // TODO: remove this code below, temporary solution to keep sending requests
             for(int i = 0; i < PeerProcess.localPeerManager.getLocalPieces().length; i++) {
                 if(PeerProcess.localPeerManager.getLocalPieces()[i].getStatus() != PieceStatus.HAVE) {
                     this.sendRequest();
@@ -156,8 +156,7 @@ public class PeerConnectionManager extends PeerConnection {
 
             this.dumpFile();
 
-//            this.sendHave(pieceIndex); // TODO: send have to everyone
-//            this.sendRequest();
+            PeerProcess.localPeerManager.announce(pieceIndex); // TODO: send have to everyone
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -234,16 +233,12 @@ public class PeerConnectionManager extends PeerConnection {
     private void sendPiece(int pieceIndex, byte[] piece) throws InterruptedException {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Piece packet to send (piece index: " + pieceIndex + ")");
 
-        if(pieceIndex > 1470) {
-            System.out.println("   or in bits " + Base64.getEncoder().encodeToString(piece));
-        }
-
         PiecePacket packet = new PiecePacket();
         packet.setData(pieceIndex, piece);
         this.outgoingMessageQueue.put(packet);
     }
 
-    private void sendHave(int pieceIndex) throws InterruptedException {
+    public void sendHave(int pieceIndex) throws InterruptedException {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Have packet to send");
 
         HavePacket packet = new HavePacket();
@@ -306,5 +301,13 @@ public class PeerConnectionManager extends PeerConnection {
         } catch (IOException e) {
             System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
         }
+    }
+
+    public boolean isIntrested() {
+        return intrested;
+    }
+
+    public void setIntrested(boolean intrested) {
+        this.intrested = intrested;
     }
 }

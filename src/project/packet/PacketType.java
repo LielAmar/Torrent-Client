@@ -22,6 +22,15 @@ public enum PacketType {
         this.payloadSize = payloadSize;
     }
 
+    public byte getTypeId() {
+        return this.typeId;
+    }
+
+    public int getPayloadSize() {
+        return this.payloadSize;
+    }
+
+
     /**
      * Given a packet type number, return a matching PacketType object
      *
@@ -46,14 +55,5 @@ public enum PacketType {
      */
     public static PacketType fromPayload(byte[] payload) {
         return fromPacketType(payload[0]);
-    }
-
-
-    public byte getTypeId() {
-        return this.typeId;
-    }
-
-    public int getPayloadSize() {
-        return this.payloadSize;
     }
 }

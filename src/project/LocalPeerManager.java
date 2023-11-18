@@ -18,7 +18,7 @@ public class LocalPeerManager {
 
     private final Piece[] localPieces;
     private final ArrayList<PeerConnectionManager> connectedPeers;
-    private final Lock choosePieceLock;
+    private final Lock choosePieceLock; // TODO: might wanna redo this code
 
 
     public LocalPeerManager(int localId, int numberOfPieces) {
@@ -50,7 +50,7 @@ public class LocalPeerManager {
     }
 
     public PeerConnectionManager connectToNewPeer(int remotePeerId, Socket socket) {
-        System.out.println("[LOCAL PEER] Creating a connection manager with peer " + remotePeerId);
+        System.out.println("[LOCAL PEER MANAGER] Creating a connection manager with peer " + remotePeerId);
 
         ConnectionState state = new ConnectionState(this.localId, remotePeerId);
         PeerConnectionManager manager = new PeerConnectionManager(socket, state);
@@ -66,8 +66,10 @@ public class LocalPeerManager {
                 .orElse(null);
     }
 
+
     public int choosePiece(Piece[] remotePieces) {
         this.choosePieceLock.lock();
+
         ArrayList<Integer> desired = new ArrayList<>();
         for (int i = 0; i < remotePieces.length; i++) {
             if(remotePieces[i].getStatus() == PieceStatus.HAVE  && this.localPieces[i].getStatus() == PieceStatus.NOT_HAVE){
@@ -81,4 +83,14 @@ public class LocalPeerManager {
         this.choosePieceLock.unlock();
         return desired.get(randomIndex);
     }
+    public void announce(int pieceIndex){
+        for (PeerConnectionManager peerConnection: connectedPeers) {
+            try {
+                peerConnection.sendHave(pieceIndex);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
 }

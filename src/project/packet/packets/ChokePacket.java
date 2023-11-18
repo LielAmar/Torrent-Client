@@ -27,6 +27,7 @@ public class ChokePacket extends Packet{
         super(PacketType.CHOKE);
     }
 
+
     @Override
     public byte[] build() {
         int messageLength = LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH;

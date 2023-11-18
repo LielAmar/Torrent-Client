@@ -8,7 +8,6 @@ public class Configuration {
     private final String fileName;
     private final int fileSize;
     private final int pieceSize;
-
     private final int numberOfPieces;
 
     public Configuration(int numberOfPreferredNeighbors, int unchokingInterval,
@@ -20,7 +19,6 @@ public class Configuration {
         this.fileName = fileName;
         this.fileSize = fileSize;
         this.pieceSize = pieceSize;
-
         this.numberOfPieces = (int) Math.ceil((double) this.fileSize / this.pieceSize);
     }
 

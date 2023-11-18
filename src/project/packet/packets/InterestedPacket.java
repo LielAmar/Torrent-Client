@@ -27,6 +27,7 @@ public class InterestedPacket extends Packet{
         super(PacketType.INTERESTED);
     }
 
+
     @Override
     public byte[] build() {
         int messageLength = LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH;

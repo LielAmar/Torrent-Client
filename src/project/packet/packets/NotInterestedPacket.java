@@ -27,6 +27,7 @@ public class NotInterestedPacket extends Packet{
         super(PacketType.NOT_INTERESTED);
     }
 
+
     @Override
     public byte[] build() {
         int messageLength = LENGTH_FIELD_LENGTH + TYPE_FIELD_LENGTH;

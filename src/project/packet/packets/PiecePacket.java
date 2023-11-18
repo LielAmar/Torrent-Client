@@ -35,6 +35,7 @@ public class PiecePacket extends Packet {
         this.pieceContent = null;
     }
 
+
     public void setData(int pieceIndex, byte[] pieceContent) {
         this.pieceIndex = pieceIndex;
         this.pieceContent = pieceContent;

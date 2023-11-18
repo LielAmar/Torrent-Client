@@ -8,6 +8,7 @@ public enum PieceStatus {
     NOT_HAVE,
     REQUESTED;
 
+
     /**
      * Converts a list of pieces into a bitset
      *
