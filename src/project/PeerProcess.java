@@ -1,5 +1,6 @@
 package project;
 
+import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
 import project.utils.Triplet;
 
@@ -7,18 +8,21 @@ import java.io.*;
 
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 public class PeerProcess {
 
-    private final static String COMMON_CONFIG_FILE = "RunDir/Common.cfg";
-    private final static String PEER_INFO_CONFIG_FILE = "RunDir/PeerInfo.cfg";
+    private final static String COMMON_CONFIG_FILE = "Common.cfg";
+    private final static String PEER_INFO_CONFIG_FILE = "PeerInfo.cfg";
 
     public static Configuration config; // TODO: might wanna change config to not be static somehow...
     public static LocalPeerManager localPeerManager;
@@ -45,8 +49,6 @@ public class PeerProcess {
 
     /**
      * Parses the Common.cfg file and sets up the configuration
-     * This function reads Common.cfg line by line, and then passes each line's data into the
-     * #Configuration.constructor function, which creates a configuration object
      */
     private static void setupConfiguration() {
         System.out.println("[CONFIGURATION] Setting up the configuration");
@@ -73,14 +75,14 @@ public class PeerProcess {
     }
 
     /**
-     * Parses the peerInfo.cfg file, starts listening to incoming connections and opens connections with all
-     * previous peers
-     * TODO: reformat this function
+     * Parses the peerInfo.cfg file, opens connections with previous peers & starts listening to incoming connections.
+     *
+     * @param localPeerId   The ID of the local peer process
      */
     private static void setupPeerConnections() {
         System.out.println("[CONNECTIONS] Setting up peer connections");
 
-        AtomicInteger port = new AtomicInteger();
+        AtomicInteger localPort = new AtomicInteger();
         List<Triplet<Integer, String, Integer>> pendingConnections = new ArrayList<>();
 
         try (Stream<String> stream = Files.lines(Paths.get(PEER_INFO_CONFIG_FILE))) {
@@ -88,16 +90,18 @@ public class PeerProcess {
                 String[] values = line.split(" ");
 
                 int peerId = Integer.parseInt(values[0]);
-                port.set(Integer.parseInt(values[2]));
 
                 if(peerId < localPeerId) {
                     String hostname = values[1];
+                    int port = Integer.parseInt(values[2]);
 
-                    pendingConnections.add(new Triplet<>(peerId, hostname, port.get()));
+                    pendingConnections.add(new Triplet<>(peerId, hostname, port));
                 } else if(peerId == localPeerId) {
                     boolean hasFile = Integer.parseInt(values[3]) == 1;
 
                     loadLocalPieces(hasFile);
+
+                    localPort.set(Integer.parseInt(values[2]));
                 }
             });
         } catch (IOException exception) {
@@ -110,7 +114,7 @@ public class PeerProcess {
         }
 
         // Start listening to incoming connections
-        listenToIncomingConnections(port.get());
+        listenToIncomingConnections(localPort.get());
     }
 
     /**
@@ -122,13 +126,12 @@ public class PeerProcess {
      */
     private static void connectToPeer(int peerId, String hostname, int port) {
         try {
+            System.out.println("[CLIENT] Attempting to connect to peer " + peerId + " at host " + hostname + ":" + port);
+
             // Create a socket connection to the given peer and then create two peer connections:
             // 1. A listener connection for listening to incoming messages
             // 2. A sender connection for sending outgoing messages
             Socket socket = new Socket(hostname, port);
-
-            System.out.println("[CLIENT] Attempting to connect to peer " + peerId + " at host " + hostname + ":" + port);
-
             PeerProcess.localPeerManager.connectToNewPeer(peerId, socket).start();
         } catch (IOException e) {
             // TODO: Close sockets
@@ -147,13 +150,12 @@ public class PeerProcess {
                 System.out.println("[SERVER] Listening to connections from peers on port " + port);
 
                 while (true) {
+                    System.out.println("[SERVER] Attempting to connect to peer " + "-1" + " at host " + "unknown" + ":" + "unknown");
+
                     // Create a socket connection to the given peer and then create two peer connections:
                     // 1. A listener connection for listening to incoming messages
                     // 2. A sender connection for sending outgoing messages
                     Socket socket = listener.accept();
-
-                    System.out.println("[SERVER] Attempting to connect to peer " + "-1" + " at host " + "unknown" + ":" + "unknown");
-
                     PeerProcess.localPeerManager.connectToNewPeer(socket).start();
                 }
             }
@@ -163,23 +165,24 @@ public class PeerProcess {
         }
     }
 
-
     private static void loadLocalPieces(boolean hasFile) {
         if(hasFile) {
-            try {
-                // Read the local file's bytes, and set all pieces to HAVE with their content
-                Path path = Paths.get("RunDir" + File.separator + "peer_" + localPeerId + File.separator + PeerProcess.config.getFileName());
-                byte[] data = Files.readAllBytes(path);
+            String filePath = "RunDir" + File.separator + "peer_" + localPeerId + File.separator + PeerProcess.config.getFileName();
+            File file = new File(filePath);
+            
+            byte[] data = new byte[(int) file.length()];
 
-                // Set all local pieces to HAVE and set their content
-                for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
-                    int pieceSize = Math.min(PeerProcess.config.getPieceSize(), PeerProcess.config.getFileSize() - i * PeerProcess.config.getPieceSize());
-                    byte[] buffer = new byte[pieceSize];
-                    System.arraycopy(data, i * PeerProcess.config.getPieceSize(), buffer, 0, buffer.length);
-                    PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
-                }
-            } catch(IOException exception) {
-                exception.printStackTrace();
+            try(FileInputStream fis = new FileInputStream(file)) {
+                fis.read(data);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+            for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
+                int pieceSize = Math.min(PeerProcess.config.getPieceSize(), PeerProcess.config.getFileSize() - i * PeerProcess.config.getPieceSize());
+                byte[] buffer = new byte[pieceSize];
+                System.arraycopy(data, i * PeerProcess.config.getPieceSize(), buffer, 0, buffer.length);
+                PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
             }
         } else {
             // Set all local pieces to NOT_HAVE with null content

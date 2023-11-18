@@ -92,8 +92,8 @@ public class PeerConnectionManager extends PeerConnection {
         switch (packet.getType()) {
             case CHOKE -> {}
             case UNCHOKE -> handleReceivedUnchoke();
-            case INTERESTED -> handleNotIntersted();
-            case NOT_INTERESTED -> handleIntersted();
+            case INTERESTED -> {}
+            case NOT_INTERESTED -> {}
             case HAVE -> handleReceivedHave((HavePacket)packet);
             case BITFIELD -> handleReceivedBitfield((BitFieldPacket) packet);
             case REQUEST -> handleReceivedRequest((RequestPacket) packet);
@@ -156,7 +156,7 @@ public class PeerConnectionManager extends PeerConnection {
 
             this.dumpFile();
 
-            PeerProcess.localPeerManager.announce(pieceIndex); // TODO: send have to everyone
+            // PeerProcess.localPeerManager.announce(pieceIndex); // TODO: send have to everyone
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
