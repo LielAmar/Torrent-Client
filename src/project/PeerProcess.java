@@ -1,6 +1,5 @@
 package project;
 
-import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
 import project.utils.Triplet;
 
@@ -8,12 +7,10 @@ import java.io.*;
 
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -67,8 +64,9 @@ public class PeerProcess {
             );
 
             System.out.println(PeerProcess.config);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        } catch (IOException exception) {
+            System.out.println("An error occurred when trying to set up the configuration!");
+            System.exit(1);
         }
 
         System.out.println("[CONFIGURATION] Finished setting up the configuration\n");
@@ -76,8 +74,6 @@ public class PeerProcess {
 
     /**
      * Parses the peerInfo.cfg file, opens connections with previous peers & starts listening to incoming connections.
-     *
-     * @param localPeerId   The ID of the local peer process
      */
     private static void setupPeerConnections() {
         System.out.println("[CONNECTIONS] Setting up peer connections");
@@ -105,7 +101,8 @@ public class PeerProcess {
                 }
             });
         } catch (IOException exception) {
-            exception.printStackTrace();
+            System.out.println("An error occurred when trying to set up connections!");
+            System.exit(1);
         }
 
         // Connect to all previous peers
@@ -133,9 +130,9 @@ public class PeerProcess {
             // 2. A sender connection for sending outgoing messages
             Socket socket = new Socket(hostname, port);
             PeerProcess.localPeerManager.connectToNewPeer(peerId, socket).start();
-        } catch (IOException e) {
-            // TODO: Close sockets
-            throw new RuntimeException(e);
+        } catch (IOException exception) {
+            System.out.println("An error occurred when trying to connect to a remote peer!");
+            System.exit(1);
         }
     }
 
@@ -159,23 +156,29 @@ public class PeerProcess {
                     PeerProcess.localPeerManager.connectToNewPeer(socket).start();
                 }
             }
-        } catch (IOException e) {
-            // TODO: Close socket
-            throw new RuntimeException(e);
+        } catch (IOException exception) {
+            System.out.println("An error occurred when a remote peer tried to connect to server!");
+            System.exit(1);
         }
     }
 
+    /**
+     * Loads the local pieces into the ram
+     *
+     * @param hasFile   Whether the local peer has the file
+     */
     private static void loadLocalPieces(boolean hasFile) {
         if(hasFile) {
             String filePath = "RunDir" + File.separator + "peer_" + localPeerId + File.separator + PeerProcess.config.getFileName();
             File file = new File(filePath);
-            
+
             byte[] data = new byte[(int) file.length()];
 
             try(FileInputStream fis = new FileInputStream(file)) {
                 fis.read(data);
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (IOException exception) {
+                System.out.println("An error occurred when tried to read file to transfer!");
+                System.exit(1);
             }
 
             for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {

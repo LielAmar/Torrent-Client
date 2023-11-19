@@ -23,7 +23,6 @@ public class PeerConnectionManager extends PeerConnection {
 
     private final PeerConnectionSender sender;
     private final PeerConnectionListener listener;
-    private boolean interested = false;
 
     public PeerConnectionManager(Socket connection, ConnectionState state) {
         super(connection, state);
@@ -59,7 +58,7 @@ public class PeerConnectionManager extends PeerConnection {
             }
 
             System.out.println("[MANAGER] Handshake received, starting listening");
-            super.state.setPeerId(handshake.getPeerId());
+            super.state.setRemotePeerId(handshake.getPeerId());
 
             super.state.unlockHandshake();
 
@@ -70,11 +69,9 @@ public class PeerConnectionManager extends PeerConnection {
 
             // Use the manager to listen to incoming messages and update peer connection data
             while(super.state.isConnectionActive()) {
-                if(!this.state.isChoked()) { // TODO: might wanna change to semaphore to make thread sleep
-                    receivedPacket = this.incomingMessageQueue.take();
+                receivedPacket = this.incomingMessageQueue.take();
 
-                    handleReceivedPacket(receivedPacket);
-                }
+                handleReceivedPacket(receivedPacket);
             }
         } catch (InterruptedException | NetworkException e) {
             throw new RuntimeException(e);
@@ -88,26 +85,20 @@ public class PeerConnectionManager extends PeerConnection {
      * @param packet   Packet received
      */
     private void handleReceivedPacket(Packet packet) {
+        // TODO: finish all handlers
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Received a " + packet.getTypeString() + " packet");
+
         switch (packet.getType()) {
             case CHOKE -> {}
             case UNCHOKE -> handleReceivedUnchoke();
-            case INTERESTED -> {}
-            case NOT_INTERESTED -> {}
+            case INTERESTED -> handleReceivedInterested();
+            case NOT_INTERESTED -> handleReceivedNotInterested();
             case HAVE -> handleReceivedHave((HavePacket)packet);
             case BITFIELD -> handleReceivedBitfield((BitFieldPacket) packet);
             case REQUEST -> handleReceivedRequest((RequestPacket) packet);
             case PIECE -> handleReceivedPiece((PiecePacket) packet);
             default -> {}
         }
-    }
-
-    private void handleIntersted() {
-        this.interested = true;
-    }
-
-    private void handleNotIntersted() {
-        this.interested = false;
     }
 
 
@@ -128,38 +119,34 @@ public class PeerConnectionManager extends PeerConnection {
     private void handleReceivedRequest(RequestPacket packet) {
         int pieceIndex = packet.getPieceIndex();
 
-        // TODO : check choke somewhere and if chocked don't send
-        // TODO: also check and make sure local does have the content of the piece
+        // TODO: check and make sure local does have the content of the piece
         byte[] pieceContent = PeerProcess.localPeerManager.getLocalPieces()[pieceIndex].getContent();
 
-        try {
+        // If the remote peer is not locally choked, it means the local peer can send pieces to it.
+        if(!this.state.isLocalChoked()) {
             this.sendPiece(pieceIndex, pieceContent);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
     }
 
     private void handleReceivedPiece(PiecePacket packet) {
-        int pieceIndex = packet.getPieceIndex();
-        byte [] pieceContent = packet.getPieceContent();
+        PeerProcess.localPeerManager.setLocalPiece(packet.getPieceIndex(), PieceStatus.HAVE, packet.getPieceContent());
+        this.state.addDownloadSpeed();
 
-        PeerProcess.localPeerManager.setLocalPiece(pieceIndex, PieceStatus.HAVE, pieceContent);
-
-        try {
-            // TODO: remove this code below, temporary solution to keep sending requests
-            for(int i = 0; i < PeerProcess.localPeerManager.getLocalPieces().length; i++) {
-                if(PeerProcess.localPeerManager.getLocalPieces()[i].getStatus() != PieceStatus.HAVE) {
+        // TODO: remove this code below, temporary solution to keep sending requests
+        // This checks if there are more pieces to receive.
+        for(int i = 0; i < PeerProcess.localPeerManager.getLocalPieces().length; i++) {
+            if(PeerProcess.localPeerManager.getLocalPieces()[i].getStatus() != PieceStatus.HAVE) {
+                if(!this.state.isRemoteChoke()) { // If the remote peer hasn't choked local peer, only then request
                     this.sendRequest();
                     return;
                 }
             }
-
-            this.dumpFile();
-
-            // PeerProcess.localPeerManager.announce(pieceIndex); // TODO: send have to everyone
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
+
+        // If no more pieces left, dump the file
+        this.dumpFile();
+
+        // PeerProcess.localPeerManager.announce(pieceIndex); // TODO: send have to everyone
     }
 
     private void handleReceivedHave(HavePacket packet) {
@@ -171,11 +158,15 @@ public class PeerConnectionManager extends PeerConnection {
     }
 
     private void handleReceivedUnchoke() {
-        try {
-            this.sendRequest();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        this.sendRequest();
+    }
+
+    private void handleReceivedInterested() {
+        this.state.setInterested(true);
+    }
+
+    private void handleReceivedNotInterested() {
+        this.state.setInterested(false);
     }
 
 
@@ -189,78 +180,103 @@ public class PeerConnectionManager extends PeerConnection {
 
         for(int pieceId = 0; pieceId < Math.min(local.length, remote.length); pieceId++) {
             if(local[pieceId].getStatus() == PieceStatus.NOT_HAVE && remote[pieceId] == PieceStatus.HAVE) {
-                try {
-                    this.sendInterested();
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                this.sendInterested();
                 return;
             }
         }
 
+        this.sendNotInterested();
+        this.sendUnchoke(); // TODO: remove this
+    }
+
+    private void sendBitfield() {
+        System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Bitfield packet to send");
+
+        BitFieldPacket packet = new BitFieldPacket();
+        packet.setData(PieceStatus.piecesToBitset(PeerProcess.localPeerManager.getLocalPieces()));
+
         try {
-            this.sendNotInterested();
-            this.sendUnchoke(); // TODO: remove this
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            this.outgoingMessageQueue.put(packet);
+        } catch (InterruptedException exception) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Bitfield packet to send");
         }
     }
 
-
-
-    private void sendBitfield() throws InterruptedException {
-        System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Bitfield packet to send");
-
-        BitFieldPacket bitFieldPacket = new BitFieldPacket();
-        bitFieldPacket.setData(PieceStatus.piecesToBitset(PeerProcess.localPeerManager.getLocalPieces()));
-        this.outgoingMessageQueue.put(bitFieldPacket);
-    }
-
-    private void sendInterested() throws InterruptedException {
+    private void sendInterested() {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Interested packet to send");
 
         Packet packet = new InterestedPacket();
-        this.outgoingMessageQueue.put(packet);
+
+        try {
+            this.outgoingMessageQueue.put(packet);
+        } catch (InterruptedException exception) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Interested packet to send");
+        }
     }
 
-    private void sendNotInterested() throws InterruptedException {
+    private void sendNotInterested() {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Not Interested packet to send");
 
         Packet packet = new NotInterestedPacket();
-        this.outgoingMessageQueue.put(packet);
+
+        try {
+            this.outgoingMessageQueue.put(packet);
+        } catch (InterruptedException exception) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Not Interested packet to send");
+        }
     }
 
-    private void sendPiece(int pieceIndex, byte[] piece) throws InterruptedException {
+    private void sendPiece(int pieceIndex, byte[] piece) {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Piece packet to send (piece index: " + pieceIndex + ")");
 
         PiecePacket packet = new PiecePacket();
         packet.setData(pieceIndex, piece);
-        this.outgoingMessageQueue.put(packet);
+
+        try {
+            this.outgoingMessageQueue.put(packet);
+        } catch (InterruptedException exception) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Piece packet to send");
+        }
     }
 
-    public void sendHave(int pieceIndex) throws InterruptedException {
+    public void sendHave(int pieceIndex) {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Have packet to send");
 
         HavePacket packet = new HavePacket();
         packet.setData(pieceIndex);
-        this.outgoingMessageQueue.put(packet);
+
+        try {
+            this.outgoingMessageQueue.put(packet);
+        } catch (InterruptedException exception) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Have packet to send");
+        }
     }
 
-    private void sendChoke() throws InterruptedException {
+    public void sendChoke() {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Choke packet to send");
 
         ChokePacket packet = new ChokePacket();
-        this.outgoingMessageQueue.put(packet);
+
+        try {
+            this.outgoingMessageQueue.put(packet);
+        } catch (InterruptedException exception) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Choke packet to send");
+        }
     }
 
-    private void sendUnchoke() throws InterruptedException {
+    public void sendUnchoke() {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Unchoke packet to send");
 
         UnchokePacket packet = new UnchokePacket();
-        this.outgoingMessageQueue.put(packet);
+
+        try {
+            this.outgoingMessageQueue.put(packet);
+        } catch (InterruptedException exception) {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Unchoke packet to send");
+        }
     }
 
-    private void sendRequest() throws InterruptedException {
+    private void sendRequest() {
         RequestPacket packet = new RequestPacket();
 
         // TODO: change this to be a random piece local doesn't have instead of first piece that local doesn't have.
@@ -279,9 +295,14 @@ public class PeerConnectionManager extends PeerConnection {
         if(desiredPieceIndex != -1) {
             System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Request packet to send (requesting piece " + desiredPieceIndex + ")");
 
-            this.outgoingMessageQueue.put(packet);
+            try {
+                this.outgoingMessageQueue.put(packet);
+            } catch (InterruptedException exception) {
+                System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Request packet to send");
+            }
         }
     }
+
 
     private void dumpFile() {
         String filePath = "RunDir/peer_" + this.state.getLocalPeerId() + File.separator + PeerProcess.config.getFileName();
@@ -301,13 +322,5 @@ public class PeerConnectionManager extends PeerConnection {
         } catch (IOException e) {
             System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
         }
-    }
-
-    public boolean isInterested() {
-        return interested;
-    }
-
-    public void setInterested(boolean interested) {
-        this.interested = interested;
     }
 }

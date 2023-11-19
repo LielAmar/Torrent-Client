@@ -11,18 +11,27 @@ public class ConnectionState {
     private final int localPeerId;
 
     private int remotePeerId;
-    private boolean choked;
     private PieceStatus[] pieces;
+
+    private boolean localChoked;
+    private boolean remoteChoke;
+    private boolean interested;
+    private int downloadSpeed;
 
     private final AtomicBoolean connectionActive;
     private final Lock handshakeLock;
+
 
     public ConnectionState(int localPeerId, int remotePeerId) {
         this.localPeerId = localPeerId;
 
         this.remotePeerId = remotePeerId;
-        this.choked = false;
         this.pieces = new PieceStatus[0];
+
+        this.localChoked = false;
+        this.remoteChoke = false;
+        this.interested = false;
+        this.downloadSpeed = 0;
 
         this.connectionActive = new AtomicBoolean(true);
         this.handshakeLock = new ReentrantLock();
@@ -38,17 +47,48 @@ public class ConnectionState {
         return this.remotePeerId;
     }
 
-    public void setPeerId(int remotePeerId) {
+    public void setRemotePeerId(int remotePeerId) {
         this.remotePeerId = remotePeerId;
     }
 
 
-    public boolean isChoked() {
-        return this.choked;
+    public boolean isLocalChoked() {
+        return localChoked;
     }
 
-    public void setChoked(boolean choked) {
-        this.choked = choked;
+    public void setLocalChoked(boolean localChoked) {
+        this.localChoked = localChoked;
+    }
+
+
+    public boolean isRemoteChoke() {
+        return remoteChoke;
+    }
+
+    public void setRemoteChoke(boolean remoteChoke) {
+        this.remoteChoke = remoteChoke;
+    }
+
+
+    public boolean isInterested() {
+        return interested;
+    }
+
+    public void setInterested(boolean interested) {
+        this.interested = interested;
+    }
+
+
+    public int getDownloadSpeed(){
+        return this.downloadSpeed;
+    }
+
+    public void resetDownloadSpeed(){
+        this.downloadSpeed = 0;
+    }
+
+    public void addDownloadSpeed(){
+        this.downloadSpeed++;
     }
 
 
