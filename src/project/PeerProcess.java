@@ -79,6 +79,14 @@ public class PeerProcess {
         System.out.println("[CONNECTIONS] Setting up peer connections");
 
         AtomicInteger localPort = new AtomicInteger();
+        
+        // this is what i want it to look like:
+        // int expectedConnections = 0;
+        // but it causes a local variable defined in enclosing scope must be final, so im doing this instead:
+        // since i can still append to a list, just append every time and then use the 
+        List<Integer> expectedConnections = new ArrayList<>();
+        
+
         List<Triplet<Integer, String, Integer>> pendingConnections = new ArrayList<>();
 
         try (Stream<String> stream = Files.lines(Paths.get(PEER_INFO_CONFIG_FILE))) {
@@ -92,12 +100,17 @@ public class PeerProcess {
                     int port = Integer.parseInt(values[2]);
 
                     pendingConnections.add(new Triplet<>(peerId, hostname, port));
-                } else if(peerId == localPeerId) {
+                } else if (peerId == localPeerId) {
                     boolean hasFile = Integer.parseInt(values[3]) == 1;
 
                     loadLocalPieces(hasFile);
 
                     localPort.set(Integer.parseInt(values[2]));
+                }
+                else
+                {
+                    expectedConnections.add(Integer.valueOf(0));
+                    // expectedConnections++;
                 }
             });
         } catch (IOException exception) {
@@ -111,7 +124,8 @@ public class PeerProcess {
         }
 
         // Start listening to incoming connections
-        listenToIncomingConnections(localPort.get());
+        // have to get the number of expected connections in a somewhat roundabout way, but it works for now
+        listenToIncomingConnections(localPort.get(), expectedConnections.size());
     }
 
     /**
@@ -141,12 +155,13 @@ public class PeerProcess {
      *
      * @param port   Port on which to listen
      */
-    private static void listenToIncomingConnections(int port) {
+    private static void listenToIncomingConnections(int port, int expectedConnections) {
+        int connectionsRecieved = 0;
         try {
             try (ServerSocket listener = new ServerSocket(port)) {
                 System.out.println("[SERVER] Listening to connections from peers on port " + port);
 
-                while (true) {
+                while (connectionsRecieved < expectedConnections) {
                     System.out.println("[SERVER] Attempting to connect to peer " + "-1" + " at host " + "unknown" + ":" + "unknown");
 
                     // Create a socket connection to the given peer and then create two peer connections:
@@ -154,6 +169,7 @@ public class PeerProcess {
                     // 2. A sender connection for sending outgoing messages
                     Socket socket = listener.accept();
                     PeerProcess.localPeerManager.connectToNewPeer(socket).start();
+                    connectionsRecieved++;
                 }
             }
         } catch (IOException exception) {
@@ -168,9 +184,10 @@ public class PeerProcess {
      * @param hasFile   Whether the local peer has the file
      */
     private static void loadLocalPieces(boolean hasFile) {
-        if(hasFile) {
-            String filePath = "RunDir" + File.separator + "peer_" + localPeerId + File.separator + PeerProcess.config.getFileName();
-            File file = new File(filePath);
+        if (hasFile) {
+            // removed rundir from the path, because the program will be running in that directory already
+            String filePath = /*"RunDir" + File.separator + */ "peer_" + localPeerId + File.separator + PeerProcess.config.getFileName();
+            File file = new File((new File(filePath)).getAbsolutePath());
 
             byte[] data = new byte[(int) file.length()];
 
@@ -178,6 +195,8 @@ public class PeerProcess {
                 fis.read(data);
             } catch (IOException exception) {
                 System.out.println("An error occurred when tried to read file to transfer!");
+                System.out.print(exception);
+                exception.printStackTrace();
                 System.exit(1);
             }
 

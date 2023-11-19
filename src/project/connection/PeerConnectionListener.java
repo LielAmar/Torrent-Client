@@ -31,7 +31,10 @@ public class PeerConnectionListener extends PeerConnection {
 
             // Wait for the handshake to be finished
             // TODO: might be able to remove this wait
+            // this is to make sure this thread doesnt continue until the conectionManager has finished processing the handshake
+            // so we shouldn't remove this wait
             this.state.waitForHandshake();
+            // i dont think this lock needs to be unlocked, as its never used again
             this.state.unlockHandshake();
 
             // Start listening to incoming messages
@@ -55,7 +58,7 @@ public class PeerConnectionListener extends PeerConnection {
     private byte[] readBytes(int length) {
         try {
             if(length > 0) {
-                System.out.println("[DEBUG] Trying to read " + length + " bytes");
+                // System.out.println("[DEBUG] Trying to read " + length + " bytes");
                 byte[] message = new byte[length];
                 this.in.readFully(message, 0, message.length);
                 return message;
@@ -69,6 +72,8 @@ public class PeerConnectionListener extends PeerConnection {
 
     private Packet listenToMessage() {
         // TODO: check if there's a message in the input stream
+        // Matthew: why do we need to check if there is a message waiting? if there isnt, then this will just block
+        // and since this is in its own dedicated thread, that is fine, right?
 
         // Read the length of the incoming packet
         byte[] lengthHeaderBytes = this.readBytes(4);

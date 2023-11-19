@@ -10,4 +10,7 @@
 ::@ECHO %rundir%
 
 ::@echo Running
+rmdir /S /Q RunDir
+xcopy RunDirClean RunDir /E /I
+
 java -Duser.dir="%rundir%" -cp "%builddir%" %mainfile% %1

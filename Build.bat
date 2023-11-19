@@ -20,3 +20,6 @@ javac -d "%builddir%" "%mainfile:.=/%.java"
 ::java -Duser.dir="%rundir%" -cp "%builddir%" %mainfile% 1001
 ::del "%builddir%\empty.class"
 cd "%abspath%"
+
+rmdir /S /Q RunDir
+xcopy RunDirClean RunDir /E /I

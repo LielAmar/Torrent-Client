@@ -13,6 +13,7 @@ import project.packet.Packet;
 import project.packet.PacketType;
 import project.packet.packets.*;
 
+import java.util.BitSet;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -24,6 +25,8 @@ public class PeerConnectionManager extends PeerConnection {
     private final PeerConnectionSender sender;
     private final PeerConnectionListener listener;
 
+    private boolean bitfieldSent;
+
     public PeerConnectionManager(Socket connection, ConnectionState state) {
         super(connection, state);
 
@@ -32,6 +35,7 @@ public class PeerConnectionManager extends PeerConnection {
 
         this.sender = new PeerConnectionSender(connection, state, this.outgoingMessageQueue);
         this.listener = new PeerConnectionListener(connection, state, this.incomingMessageQueue);
+        bitfieldSent = false;
     }
 
     public void run() {
@@ -63,9 +67,12 @@ public class PeerConnectionManager extends PeerConnection {
             super.state.unlockHandshake();
 
 
-            // Send first bitfield packet
+            // Send bitfield packet and start listening for have messages from other threads
+            // see comment in LocalPeerManager for details.
+            PeerProcess.localPeerManager.AquireBitMapLock();
             this.sendBitfield();
-
+            this.bitfieldSent = true;
+            PeerProcess.localPeerManager.ReleaseBitMapLock();
 
             // Use the manager to listen to incoming messages and update peer connection data
             while(super.state.isConnectionActive()) {
@@ -147,6 +154,7 @@ public class PeerConnectionManager extends PeerConnection {
         this.dumpFile();
 
         // PeerProcess.localPeerManager.announce(pieceIndex); // TODO: send have to everyone
+        // going to do this in the localPeerManager instead
     }
 
     private void handleReceivedHave(HavePacket packet) {
@@ -193,7 +201,14 @@ public class PeerConnectionManager extends PeerConnection {
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Bitfield packet to send");
 
         BitFieldPacket packet = new BitFieldPacket();
-        packet.setData(PieceStatus.piecesToBitset(PeerProcess.localPeerManager.getLocalPieces()));
+        BitSet bitset = PieceStatus.piecesToBitset(PeerProcess.localPeerManager.getLocalPieces());
+        if (bitset.isEmpty())
+        {
+            // we have no pieces, so we dont send a bitfield packet
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Not sending Bitfield, as we have no pieces");
+            return;
+        }
+        packet.setData(bitset);
 
         try {
             this.outgoingMessageQueue.put(packet);
@@ -240,6 +255,12 @@ public class PeerConnectionManager extends PeerConnection {
     }
 
     public void sendHave(int pieceIndex) {
+        if (!bitfieldSent)
+        {
+            System.out.println("[HANDLER (" + this.state.getRemotePeerId()
+                    + ")] Not sending have packet as bitfield hasn't been sent yet");
+            return;
+        }
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Have packet to send");
 
         HavePacket packet = new HavePacket();
@@ -295,7 +316,7 @@ public class PeerConnectionManager extends PeerConnection {
 
 
     private void dumpFile() {
-        String filePath = "RunDir/peer_" + this.state.getLocalPeerId() + File.separator + PeerProcess.config.getFileName();
+        String filePath = "peer_" + this.state.getLocalPeerId() + File.separator + PeerProcess.config.getFileName();
 
         File file = new File(filePath);
 

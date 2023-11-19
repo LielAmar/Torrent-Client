@@ -13,7 +13,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class LocalPeerManager {
 
@@ -25,6 +27,30 @@ public class LocalPeerManager {
     private final Piece[] localPieces;
     private final Lock choosePieceLock; // TODO: might wanna redo this code
 
+    /*
+     * I noticed some potential problems in how the bitmap packet is generated and sent,
+     * and how the have packets are communicated internally between threads.
+     * EX: Communication with 2 peers, A and B
+     * IF the connection with A is set up well before the connection to B, it is possible that we are exchanging data
+     * with peer A before we have sent/recieved the handshake with B. If this happened, A might recieve a piece and
+     * when anouncing it, adds the have message to connection B's queue before the handshake.
+     * This would mean that the handshake isn't the first thing sent to B and the connection would fail.
+     * Also, if B has already gotten the bitmap from the LocalPeerManager
+     * but hasn't yet enabled listining to other connections "have" messages, then it could end up with 
+     * Peer B having a incorrect view of what pieces we have.
+     * 
+     * Solution: this ReadWriteLock 'bitMapLock'
+     * When a connetion is preparing to send its bitmap, we want to stop all other threads from submiting 
+     * the pieces they have recieved until the new connection is in a stable state.
+     * We are actually somewhat misusing this lock.
+     * When a thread recieves a piece it aquires the reader lock before marking it as had in the LocalPeerManager
+     * and anouncing the change in state to other threads. 
+     * The connection reading to generate its bitmap to send actually aquires the writer lock,
+     * so that no other threads can mark and piece as had until this thread is done setting up its bitmap.
+     * 
+     */
+    private final ReadWriteLock bitMapLock;
+
     private final ArrayList<PeerConnectionManager> connectedPeers;
 
     private PeerConnectionManager optimisticallyUnchoked;
@@ -35,6 +61,8 @@ public class LocalPeerManager {
         this.localPieces = new Piece[numberOfPieces];
         this.choosePieceLock = new ReentrantLock();
 
+        this.bitMapLock = new ReentrantReadWriteLock();
+
         this.connectedPeers = new ArrayList<>();
 
         this.optimisticallyUnchoked = null;
@@ -43,12 +71,23 @@ public class LocalPeerManager {
         executor.scheduleAtFixedRate(this::setOptimalUnchoked, 0, PeerProcess.config.getOptimisticUnchokingInterval(), TimeUnit.SECONDS);
     }
 
+    public void AquireBitMapLock()
+    {
+        this.bitMapLock.writeLock().lock();
+    }
+
+    public void ReleaseBitMapLock()
+    {
+        this.bitMapLock.writeLock().unlock();
+    }
 
     public Piece[] getLocalPieces() {
         return this.localPieces;
     }
 
+
     public void setLocalPiece(int pieceId, PieceStatus status, byte[] content) {
+        this.bitMapLock.readLock().lock();
         System.out.println("[LOCAL PEER] Setting piece to status " + status.name() + ((content == null) ? " without " : " with " + "content"));
 
         if(this.localPieces[pieceId] == null) {
@@ -57,6 +96,8 @@ public class LocalPeerManager {
             this.localPieces[pieceId].setStatus(status);
             this.localPieces[pieceId].setContent(content);
         }
+        announce(pieceId);
+        this.bitMapLock.readLock().unlock();
     }
 
 
@@ -88,24 +129,24 @@ public class LocalPeerManager {
         ArrayList<Integer> desired = new ArrayList<>();
 
         for (int i = 0; i < remotePieces.length; i++) {
-            if(remotePieces[i] == PieceStatus.HAVE  && this.localPieces[i].getStatus() == PieceStatus.NOT_HAVE) {
+            if (remotePieces[i] == PieceStatus.HAVE && this.localPieces[i].getStatus() == PieceStatus.NOT_HAVE) {
                 desired.add(i);
             }
         }
 
         int randomIndex = -1;
 
-        if(desired.size() != 0) {
+        if (desired.size() != 0) {
             randomIndex = desired.get(random.nextInt(desired.size()));
             this.localPieces[randomIndex].setStatus(PieceStatus.REQUESTED);
         }
-
 
         this.choosePieceLock.unlock();
         return randomIndex;
     }
 
-    public void announce(int pieceIndex) {
+    // this is now private, and is only called in setLocalPiece
+    private void announce(int pieceIndex) {
         for (PeerConnectionManager peerConnection: connectedPeers) {
             peerConnection.sendHave(pieceIndex);
         }
