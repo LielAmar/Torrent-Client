@@ -277,23 +277,13 @@ public class PeerConnectionManager extends PeerConnection {
     }
 
     private void sendRequest() {
-        RequestPacket packet = new RequestPacket();
-
-        // TODO: change this to be a random piece local doesn't have instead of first piece that local doesn't have.
-        int desiredPieceIndex = -1;
-        for(int i = 0; i < this.state.getPieces().length; i++) {
-            // If remote has a piece that local doesn't, ask for this piece
-            if(this.state.getPieces()[i] == PieceStatus.HAVE &&
-                    PeerProcess.localPeerManager.getLocalPieces()[i].getStatus() == PieceStatus.NOT_HAVE) {
-                desiredPieceIndex = i;
-                break;
-            }
-        }
-
-        packet.setData(desiredPieceIndex);
+        int desiredPieceIndex = PeerProcess.localPeerManager.choosePiece(this.state.getPieces());
 
         if(desiredPieceIndex != -1) {
             System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Request packet to send (requesting piece " + desiredPieceIndex + ")");
+
+            RequestPacket packet = new RequestPacket();
+            packet.setData(desiredPieceIndex);
 
             try {
                 this.outgoingMessageQueue.put(packet);

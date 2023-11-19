@@ -82,21 +82,27 @@ public class LocalPeerManager {
     }
 
 
-    public int choosePiece(Piece[] remotePieces) {
+    public int choosePiece(PieceStatus[] remotePieces) {
         this.choosePieceLock.lock();
 
         ArrayList<Integer> desired = new ArrayList<>();
+
         for (int i = 0; i < remotePieces.length; i++) {
-            if(remotePieces[i].getStatus() == PieceStatus.HAVE  && this.localPieces[i].getStatus() == PieceStatus.NOT_HAVE){
+            if(remotePieces[i] == PieceStatus.HAVE  && this.localPieces[i].getStatus() == PieceStatus.NOT_HAVE) {
                 desired.add(i);
             }
         }
-        Random random = new Random();
-        int randomIndex = random.nextInt(desired.size());
-        this.localPieces[desired.get(randomIndex)].setStatus(PieceStatus.REQUESTED);
+
+        int randomIndex = -1;
+
+        if(desired.size() != 0) {
+            randomIndex = desired.get(random.nextInt(desired.size()));
+            this.localPieces[randomIndex].setStatus(PieceStatus.REQUESTED);
+        }
+
 
         this.choosePieceLock.unlock();
-        return desired.get(randomIndex);
+        return randomIndex;
     }
 
     public void announce(int pieceIndex) {
