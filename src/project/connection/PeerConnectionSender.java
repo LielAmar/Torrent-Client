@@ -31,7 +31,6 @@ public class PeerConnectionSender extends PeerConnection {
             sendMessage(packet);
 
             // Wait for the handshake to be finished
-            // TODO: might be able to remove this wait
             this.state.waitForHandshake();
             this.state.unlockHandshake();
 
@@ -41,21 +40,17 @@ public class PeerConnectionSender extends PeerConnection {
 
             // Start sending outgoing messages
             while (super.state.isConnectionActive()) {
-                packet = this.messageQueue.take();
-                sendMessage(packet);
+                this.sendMessage(this.messageQueue.take());
             }
-
-            // Send interest / uninterested
         } catch (IOException | InterruptedException | NetworkException e) {
-            throw new RuntimeException(e);
+//            throw new RuntimeException(e);
         } finally {
             try {
-                System.out.println("[SENDER] Closing connection with peer " + this.state.getRemotePeerId());
+                System.out.println("[SENDER] Closing output stream with peer " + this.state.getRemotePeerId());
 
                 this.out.close();
-                this.connection.close();
             } catch (IOException ioException) {
-                System.out.println("[SENDER] Failed to close connection with peer " + this.state.getRemotePeerId());
+                System.out.println("[SENDER] Failed to close output stream with peer " + this.state.getRemotePeerId());
             }
         }
     }

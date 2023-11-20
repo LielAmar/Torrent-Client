@@ -76,12 +76,11 @@ public class PeerConnectionManager extends PeerConnection {
 
             // Use the manager to listen to incoming messages and update peer connection data
             while(super.state.isConnectionActive()) {
-                receivedPacket = this.incomingMessageQueue.take();
-
-                handleReceivedPacket(receivedPacket);
+                this.handleReceivedPacket(this.incomingMessageQueue.take());
             }
         } catch (InterruptedException | NetworkException e) {
-            throw new RuntimeException(e);
+            this.terminate();
+//            throw new RuntimeException(e);
         }
     }
 
@@ -161,6 +160,9 @@ public class PeerConnectionManager extends PeerConnection {
         int pieceIndex = packet.getPieceIndex();
 
         this.state.updatePiece(pieceIndex);
+
+        // Check if this connection should be terminated and terminate it if so
+        PeerProcess.localPeerManager.checkTerminateConnection(this);
 
         this.sendInterestedNotInterested();
     }
@@ -336,6 +338,18 @@ public class PeerConnectionManager extends PeerConnection {
             System.out.println("[FILE DUMPER] Dumped all content into the file");
         } catch (IOException e) {
             System.err.println("[FILE DUMPER] Attempting to dump the content into the file has failed");
+        }
+    }
+
+
+    public void terminate() {
+        System.out.println("[MANAGER] Setting connection to not active");
+        this.state.setConnectionActive(false);
+
+        try {
+            this.connection.close();
+        } catch(IOException exception) {
+            exception.printStackTrace();
         }
     }
 }

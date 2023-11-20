@@ -30,27 +30,22 @@ public class PeerConnectionListener extends PeerConnection {
             this.messageQueue.put(listenToHandshake());
 
             // Wait for the handshake to be finished
-            // TODO: might be able to remove this wait
-            // this is to make sure this thread doesnt continue until the conectionManager has finished processing the handshake
-            // so we shouldn't remove this wait
             this.state.waitForHandshake();
-            // i dont think this lock needs to be unlocked, as its never used again
             this.state.unlockHandshake();
 
             // Start listening to incoming messages
             while (this.state.isConnectionActive()) {
-                this.messageQueue.put(listenToMessage());
+                this.messageQueue.put(this.listenToMessage());
             }
         } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
+//            throw new RuntimeException(e);
         } finally {
             try {
-                System.out.println("[LISTENER] Closing connection with peer " + this.state.getRemotePeerId());
+                System.out.println("[LISTENER] Closing input stream with peer " + this.state.getRemotePeerId());
 
                 this.in.close();
-                this.connection.close();
             } catch(IOException ioException){
-                System.out.println("[LISTENER] Failed to close connection with peer " + this.state.getRemotePeerId());
+                System.out.println("[LISTENER] Failed to close input stream with peer " + this.state.getRemotePeerId());
             }
         }
     }

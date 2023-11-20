@@ -157,6 +157,7 @@ public class PeerProcess {
      */
     private static void listenToIncomingConnections(int port, int expectedConnections) {
         int connectionsRecieved = 0;
+
         try {
             try (ServerSocket listener = new ServerSocket(port)) {
                 System.out.println("[SERVER] Listening to connections from peers on port " + port);

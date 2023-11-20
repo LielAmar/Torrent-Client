@@ -213,4 +213,32 @@ public class LocalPeerManager {
             this.optimisticallyUnchoked.sendUnchoke();
         }
     }
+
+
+
+    /**
+     * Checks if either the remote peer still has pieces it needs, or the local peer still has pieces it needs.
+     *
+     * @return   Whether the connection is still needed
+     */
+    public void checkTerminateConnection(PeerConnectionManager peerConnectionManager) {
+        for(int i = 0; i < peerConnectionManager.getConnectionState().getPieces().length; i++) {
+            if(peerConnectionManager.getConnectionState().getPieces()[i] != PieceStatus.HAVE) {
+                return;
+            }
+        }
+
+        for(int i = 0; i < this.getLocalPieces().length; i++) {
+            if(this.getLocalPieces()[i].getStatus() != PieceStatus.HAVE) {
+                return;
+            }
+        }
+
+        peerConnectionManager.terminate();
+        this.connectedPeers.remove(peerConnectionManager);
+
+        if(this.connectedPeers.isEmpty()) {
+            executor.close();
+        }
+    }
 }
