@@ -7,7 +7,7 @@
 @SET rundir=%abspath%RunDir
 
 @SET peerIDStart=1001
-@SET peerIDEnd=1002
+@SET peerIDEnd=1004
 ::@ECHO %builddir%
 ::@ECHO %rundir%
 

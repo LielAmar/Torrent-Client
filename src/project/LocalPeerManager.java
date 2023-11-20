@@ -88,7 +88,7 @@ public class LocalPeerManager {
 
     public void setLocalPiece(int pieceId, PieceStatus status, byte[] content) {
         this.bitMapLock.readLock().lock();
-        System.out.println("[LOCAL PEER] Setting piece to status " + status.name() + ((content == null) ? " without " : " with " + "content"));
+        System.out.println("[LOCAL PEER] Setting piece " + pieceId + " to status " + status.name() + ((content == null) ? " without " : " with " + "content"));
 
         if(this.localPieces[pieceId] == null) {
             this.localPieces[pieceId] = new Piece(status, content);
@@ -125,6 +125,7 @@ public class LocalPeerManager {
 
     public int choosePiece(PieceStatus[] remotePieces) {
         this.choosePieceLock.lock();
+        // int randomIndex = -1;
 
         ArrayList<Integer> desired = new ArrayList<>();
 
@@ -140,6 +141,14 @@ public class LocalPeerManager {
             randomIndex = desired.get(random.nextInt(desired.size()));
             this.localPieces[randomIndex].setStatus(PieceStatus.REQUESTED);
         }
+
+        // for (int i = 0; i < remotePieces.length; i++) {
+        //     if (remotePieces[i] == PieceStatus.HAVE && this.localPieces[i].getStatus() == PieceStatus.NOT_HAVE) {
+        //         this.localPieces[i].setStatus(PieceStatus.REQUESTED);
+        //         this.choosePieceLock.unlock();
+        //         return i;
+        //     }
+        // }
 
         this.choosePieceLock.unlock();
         return randomIndex;
@@ -171,7 +180,9 @@ public class LocalPeerManager {
                 .filter(peer -> peer != optimisticallyUnchoked && !unchoked.contains(peer))
                 .toList();
 
+        System.out.println("=======");
         unchoked.forEach(peer -> {
+            System.out.println("Unchoking peer " + peer.getConnectionState().getRemotePeerId());
             if(peer.getConnectionState().isLocalChoked()) {
                 peer.getConnectionState().setLocalChoked(false);
                 peer.sendUnchoke();
@@ -179,12 +190,13 @@ public class LocalPeerManager {
         });
 
         choked.forEach(peer -> {
+            System.out.println("Choking peer " + peer.getConnectionState().getRemotePeerId());
             if(!peer.getConnectionState().isLocalChoked()) {
-
                 peer.getConnectionState().setLocalChoked(true);
                 peer.sendChoke();
             }
         });
+        System.out.println("=======");
     }
 
     private void setOptimalUnchoked() {
@@ -195,6 +207,8 @@ public class LocalPeerManager {
         this.optimisticallyUnchoked = choked.get(random.nextInt(choked.size()));
 
         if(this.optimisticallyUnchoked.getConnectionState().isLocalChoked()) {
+            System.out.println("Unchoking peer optimistically " + this.optimisticallyUnchoked.getConnectionState().getRemotePeerId());
+
             this.optimisticallyUnchoked.getConnectionState().setLocalChoked(false);
             this.optimisticallyUnchoked.sendUnchoke();
         }

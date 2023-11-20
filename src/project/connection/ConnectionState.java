@@ -28,7 +28,13 @@ public class ConnectionState {
         this.remotePeerId = remotePeerId;
         this.pieces = new PieceStatus[0];
 
-        this.localChoked = false;
+        // Assume that the local peer choked all remote peers, meaning local peer can't send anything to anyone.
+        // Every K seconds, there's a reevaluation in which the local peer unchokes certain remote peers, and then its
+        // able to start sending them data
+        this.localChoked = true;
+        // Assume that all remote peers did not choke local peer, meaning local peer is able to receive data from anyone.
+        // Every K seconds, there's a reevaluation in which the remote peers unchoke or choke the local peer, and then the
+        // local peer is either able or not able to receive data from the specific remote peer
         this.remoteChoke = false;
         this.interested = false;
         this.downloadSpeed = 0;

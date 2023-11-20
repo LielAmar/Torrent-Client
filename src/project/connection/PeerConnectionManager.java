@@ -194,7 +194,7 @@ public class PeerConnectionManager extends PeerConnection {
         }
 
         this.sendNotInterested();
-        this.sendUnchoke(); // TODO: remove this
+        // this.sendUnchoke(); // TODO: remove this
     }
 
     private void sendBitfield() {
@@ -202,12 +202,15 @@ public class PeerConnectionManager extends PeerConnection {
 
         BitFieldPacket packet = new BitFieldPacket();
         BitSet bitset = PieceStatus.piecesToBitset(PeerProcess.localPeerManager.getLocalPieces());
-        if (bitset.isEmpty())
-        {
-            // we have no pieces, so we dont send a bitfield packet
-            System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Not sending Bitfield, as we have no pieces");
-            return;
-        }
+        
+        // We can always send the bitfield, even if empty, so this code isn't necessary
+        // if (bitset.isEmpty())
+        // {
+        //     // we have no pieces, so we dont send a bitfield packet
+        //     System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Not sending Bitfield, as we have no pieces");
+        //     return;
+        // }
+        
         packet.setData(bitset);
 
         try {
@@ -260,7 +263,7 @@ public class PeerConnectionManager extends PeerConnection {
             System.out.println("[HANDLER (" + this.state.getRemotePeerId()
                     + ")] Not sending have packet as bitfield hasn't been sent yet");
             return;
-        }
+        }   
         System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Preparing Have packet to send");
 
         HavePacket packet = new HavePacket();
@@ -316,9 +319,10 @@ public class PeerConnectionManager extends PeerConnection {
 
 
     private void dumpFile() {
-        String filePath = "peer_" + this.state.getLocalPeerId() + File.separator + PeerProcess.config.getFileName();
+        // TODO: move this function to local peer manager
+        String filePath =  "peer_" + this.state.getLocalPeerId() + File.separator + PeerProcess.config.getFileName();
 
-        File file = new File(filePath);
+        File file = new File((new File(filePath)).getAbsolutePath());
 
         try (FileOutputStream fos = new FileOutputStream(file)) {
             if (!file.exists()) {
