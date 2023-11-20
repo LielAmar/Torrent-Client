@@ -156,7 +156,9 @@ public class LocalPeerManager {
 
     // this is now private, and is only called in setLocalPiece
     private void announce(int pieceIndex) {
-        for (PeerConnectionManager peerConnection: connectedPeers) {
+        List<PeerConnectionManager> connectedPeersCopy = new ArrayList<>(connectedPeers);
+
+        for (PeerConnectionManager peerConnection : connectedPeersCopy) {
             peerConnection.sendHave(pieceIndex);
         }
     }
@@ -239,6 +241,13 @@ public class LocalPeerManager {
 
         if(this.connectedPeers.isEmpty()) {
             executor.close();
+
+            try {
+                Thread.sleep(10000);
+            } catch(InterruptedException exception) {
+                exception.printStackTrace();
+            }
+            System.exit(0);
         }
     }
 }

@@ -38,6 +38,7 @@ public class PeerConnectionListener extends PeerConnection {
                 this.messageQueue.put(this.listenToMessage());
             }
         } catch (IOException | InterruptedException e) {
+            // super.state.setConnectionActive(false);
 //            throw new RuntimeException(e);
         } finally {
             try {
@@ -59,7 +60,7 @@ public class PeerConnectionListener extends PeerConnection {
                 return message;
             }
         } catch(IOException exception) {
-            System.out.println("[DEBUG] Tried to read and failed");
+            // System.out.println("[DEBUG] Tried to read and failed");
         }
 
         return null;

@@ -44,6 +44,7 @@ public class PeerConnectionSender extends PeerConnection {
             }
         } catch (IOException | InterruptedException | NetworkException e) {
 //            throw new RuntimeException(e);
+            // super.state.setConnectionActive(false);
         } finally {
             try {
                 System.out.println("[SENDER] Closing output stream with peer " + this.state.getRemotePeerId());
@@ -56,6 +57,10 @@ public class PeerConnectionSender extends PeerConnection {
     }
 
     private void sendMessage(Packet message) throws NetworkException {
+        if(!this.state.isConnectionActive()) {
+            return;
+        }
+
         try {
             byte[] messageBytes = message.build();
 

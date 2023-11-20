@@ -79,8 +79,9 @@ public class PeerConnectionManager extends PeerConnection {
                 this.handleReceivedPacket(this.incomingMessageQueue.take());
             }
         } catch (InterruptedException | NetworkException e) {
-            this.terminate();
 //            throw new RuntimeException(e);
+        } finally {
+            PeerProcess.localPeerManager.checkTerminateConnection(this);
         }
     }
 
@@ -151,7 +152,7 @@ public class PeerConnectionManager extends PeerConnection {
 
         // If no more pieces left, dump the file
         this.dumpFile();
-
+        
         // PeerProcess.localPeerManager.announce(pieceIndex); // TODO: send have to everyone
         // going to do this in the localPeerManager instead
     }
@@ -276,6 +277,9 @@ public class PeerConnectionManager extends PeerConnection {
         } catch (InterruptedException exception) {
             System.out.println("[HANDLER (" + this.state.getRemotePeerId() + ")] Failed to prepare Have packet to send");
         }
+
+        // Check if this connection should be terminated and terminate it if so
+        PeerProcess.localPeerManager.checkTerminateConnection(this);
     }
 
     public void sendChoke() {
@@ -343,11 +347,18 @@ public class PeerConnectionManager extends PeerConnection {
 
 
     public void terminate() {
+        if(!this.state.isConnectionActive()) {
+            // Already terminated
+            return;
+        }
+
         System.out.println("[MANAGER] Setting connection to not active");
         this.state.setConnectionActive(false);
 
         try {
             this.connection.close();
+            this.incomingMessageQueue.add(new UnknownPacket());
+            this.outgoingMessageQueue.add(new UnknownPacket());
         } catch(IOException exception) {
             exception.printStackTrace();
         }
