@@ -16,6 +16,7 @@ public class ConnectionState {
     private AtomicBoolean remoteChoked;
 
     private AtomicBoolean interested;
+    private AtomicBoolean localInterestedIn;
     private AtomicInteger downloadSpeed;
 
     private final AtomicBoolean connectionActive;
@@ -38,6 +39,7 @@ public class ConnectionState {
         this.remoteChoked = new AtomicBoolean(false);
 
         this.interested = new AtomicBoolean(false);
+        this.localInterestedIn = new AtomicBoolean(false);
         this.downloadSpeed = new AtomicInteger(0);
 
         this.connectionActive = new AtomicBoolean(true);
@@ -82,6 +84,13 @@ public class ConnectionState {
         this.interested.set(interested);
     }
 
+    public boolean isLocalInterestedIn() {
+        return this.localInterestedIn.get();
+    }
+
+    public void setLocalInterestedIn(boolean interested) {
+        this.localInterestedIn.set(interested);
+    }
 
     public int getDownloadSpeed() {
         return this.downloadSpeed.get();

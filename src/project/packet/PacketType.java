@@ -54,6 +54,10 @@ public enum PacketType {
      * @return          The packet's type
      */
     public static PacketType fromPayload(byte[] payload) {
+        if(payload == null) {
+            return PacketType.UNKNOWN;
+        }
+        
         return fromPacketType(payload[0]);
     }
 }

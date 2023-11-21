@@ -99,7 +99,12 @@ public class PeerConnectionListener extends PeerConnection {
                 return message;
             }
         } catch(IOException exception) {
-            System.out.println("[DEBUG] Tried to read and failed");
+//            System.out.println("[DEBUG] Tried to read and failed");
+            // try {
+            //     Thread.sleep(10000);
+            // } catch(InterruptedException exc) {
+            //     exc.printStackTrace();
+            // }
         }
 
         return null;

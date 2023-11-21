@@ -10,9 +10,9 @@ public enum Tag {
     EXECUTOR("EXECUTOR", true),
 
     PEER_CONNECTION_MANAGER("PEER_CONNECTION_MANAGER", true),
-    HANDLER("HANDLER", true),
-    LISTENER("LISTENER", true),
-    SENDER("SENDER", true);
+    HANDLER("HANDLER", false),
+    LISTENER("LISTENER", false),
+    SENDER("SENDER", false);
 
 
     private String tag;

@@ -8,6 +8,8 @@ import project.utils.Logger;
 import project.utils.Tag;
 
 import java.io.File;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.Lock;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,7 +34,7 @@ public class LocalPeerManager {
     private final Configuration config;
 
     private final Piece[] localPieces;
-
+    private final Lock choosePieceLock;
     private final ArrayList<PeerConnectionManager> connectedPeers;
 
     /*
@@ -71,6 +73,7 @@ public class LocalPeerManager {
         this.connectedPeers = new ArrayList<>();
 
         this.bitmapLock = new ReentrantReadWriteLock();
+        this.choosePieceLock = new ReentrantLock();
 
         this.optimisticallyUnchokedPeer = null;
 
@@ -96,10 +99,6 @@ public class LocalPeerManager {
     }
 
     public void setLocalPiece(int pieceId, PieceStatus status, byte[] content) {
-        this.setLocalPiece(pieceId, status, content, false);
-    }
-
-    public void setLocalPiece(int pieceId, PieceStatus status, byte[] content, boolean announce) {
         Logger.print(Tag.LOCAL_PEER_MANAGER, "Updating piece " + pieceId + " status to " + status.name());
 
         this.bitmapLock.readLock().lock();
@@ -113,12 +112,14 @@ public class LocalPeerManager {
         }
 
         // If the piece status is set to HAVE and announce is true, send an announcement to all connections
-        if(status == PieceStatus.HAVE && announce) {
+        if(status == PieceStatus.HAVE) {
             announce(pieceId);
         }
 
         // If all pieces were transferred, dump all pieces into the file
         if(this.completedTransfer()) {
+            Logger.print(Tag.LOCAL_PEER_MANAGER, "Dumped file with piece: " + pieceId);
+
             this.dumpFile();
         }
 
@@ -177,7 +178,7 @@ public class LocalPeerManager {
         // If the local peer doesn't have the file, set all local pieces to NOT_HAVE with null content
         if (!hasFile) {
             for(int i = 0; i < this.config.getNumberOfPieces(); i++) {
-                this.setLocalPiece(i, PieceStatus.NOT_HAVE, null);
+                this.localPieces[i] = new Piece(PieceStatus.NOT_HAVE, null);
             }
 
             return;
@@ -192,7 +193,7 @@ public class LocalPeerManager {
             byte[] pieceContent = new byte[pieceSize];
 
             System.arraycopy(localFileBytes, i * this.config.getPieceSize(), pieceContent, 0, pieceSize);
-            this.setLocalPiece(i, PieceStatus.HAVE, pieceContent);
+            this.localPieces[i] = new Piece(PieceStatus.HAVE, pieceContent);
         }
     }
 
@@ -225,7 +226,9 @@ public class LocalPeerManager {
      * @return               Chosen piece index, -1 if no such piece
      */
     public int choosePieceToRequest(PieceStatus[] remotePieces) {
-        this.bitmapLock.readLock().lock();
+        // TODO: change this lock to write lock/different lock because 2 connections might choose the same piece
+        // this.bitmapLock.readLock().lock();
+        this.choosePieceLock.lock();
 
         ArrayList<Integer> desired = new ArrayList<>();
 
@@ -242,7 +245,8 @@ public class LocalPeerManager {
             this.localPieces[randomIndex].setStatus(PieceStatus.REQUESTED);
         }
 
-        this.bitmapLock.readLock().unlock();
+        // this.bitmapLock.readLock().unlock();
+        this.choosePieceLock.unlock();
 
         return randomIndex;
     }
@@ -326,7 +330,7 @@ public class LocalPeerManager {
      */
     private boolean completedTransfer() {
         for(Piece piece : this.localPieces) {
-            if(piece.getStatus() != PieceStatus.HAVE) {
+            if(piece == null || piece.getStatus() != PieceStatus.HAVE) {
                 return false;
             }
         }
@@ -360,6 +364,32 @@ public class LocalPeerManager {
     }
 
 
+    public void attemptTerminate() {
+        for(int i = 0; i < this.getLocalPieces().length; i++) {
+            if(this.getLocalPieces()[i].getStatus() == PieceStatus.NOT_HAVE) {
+                return;
+            }
+        }
+
+        List<PeerConnectionManager> connectedPeersCopy = new ArrayList<>(this.connectedPeers);
+
+        connectedPeersCopy.stream()
+            .filter(peerConnectionManager -> {
+                if(peerConnectionManager == null) {
+                    return false;
+                }
+                
+                for(int i = 0; i < peerConnectionManager.getConnectionState().getPieces().length; i++) {
+                    if(peerConnectionManager.getConnectionState().getPieces()[i] == PieceStatus.NOT_HAVE) {
+                        return false;
+                    }
+                }
+
+                return true;
+            })
+            .forEach(this::terminateConnection);
+    }
+
     /**
      * Attempts to close the connection between the local peer and the given remote peer if both have all pieces.
      *
@@ -378,6 +408,10 @@ public class LocalPeerManager {
             }
         }
 
+        this.terminateConnection(peerConnectionManager);
+    }
+
+    private void terminateConnection(PeerConnectionManager peerConnectionManager) {
         peerConnectionManager.terminate();
 
         this.connectedPeers.remove(peerConnectionManager);
@@ -391,7 +425,7 @@ public class LocalPeerManager {
                 exception.printStackTrace();
             }
 
-            System.exit(0);
+            // System.exit(0);
         }
     }
 }

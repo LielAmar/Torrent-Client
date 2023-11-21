@@ -125,8 +125,10 @@ public class PeerConnectionHandler {
 
         if(this.hasInterest()) {
             this.sendInterested();
+            this.state.setLocalInterestedIn(true);
         } else {
             this.sendNotInterested();
+            this.state.setLocalInterestedIn(false);
         }
     }
 
@@ -147,8 +149,24 @@ public class PeerConnectionHandler {
 
         if(this.hasInterest()) {
             this.sendInterested();
+
+            if(!this.state.isLocalInterestedIn()) {
+                // TODO: sometimes, peer B doesn't send peer C any pieces. Try to fix it.
+//                if(!this.state.isRemoteChoked()) {
+//                    // If there's more pieces to request, request one.
+//                    pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
+//
+//                    if(pieceIndex != -1 && !this.state.isRemoteChoked()) {
+//                        this.sendRequest(pieceIndex);
+//                    }
+//                }
+
+                this.state.setLocalInterestedIn(true);
+            }
         } else {
             this.sendNotInterested();
+
+            this.state.setLocalInterestedIn(false);
         }
 
         // Check if the connection needs to be terminated (both local & remote peers have all pieces)
@@ -185,7 +203,7 @@ public class PeerConnectionHandler {
      * @param packet   The Piece Packet
      */
     private void handlePiece(PiecePacket packet) {
-        this.localPeerManager.setLocalPiece(packet.getPieceIndex(), PieceStatus.HAVE, packet.getPieceContent(), true);
+        this.localPeerManager.setLocalPiece(packet.getPieceIndex(), PieceStatus.HAVE, packet.getPieceContent());
         this.state.increaseDownloadSpeed();
 
         // If there's more pieces to request, request one.
@@ -197,7 +215,7 @@ public class PeerConnectionHandler {
         }
 
         // Check if the connection needs to be terminated (both local & remote peers have all pieces)
-        this.localPeerManager.attemptTerminate(this.peerConnectionManager);
+        this.localPeerManager.attemptTerminate();
     }
 
 
