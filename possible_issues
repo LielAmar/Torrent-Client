@@ -1,0 +1,4 @@
+1. Say a local peer received a piece from remote peer, and now there aren't any pieces the local peer
+   wants from the remote peer, although the local peer still doesn't have the whole file.
+   Say afterwards the remote peer receives a new piece that the local peer doesn't have. How does the local
+   peer knows to start sending REQUEST packets again?

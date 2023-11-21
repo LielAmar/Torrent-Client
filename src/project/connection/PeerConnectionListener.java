@@ -1,7 +1,10 @@
 package project.connection;
 
+import project.LocalPeerManager;
 import project.packet.Packet;
 import project.packet.packets.*;
+import project.utils.Logger;
+import project.utils.Tag;
 
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -15,62 +18,53 @@ public class PeerConnectionListener extends PeerConnection {
 
     private DataInputStream in;
 
-    public PeerConnectionListener(Socket connection, ConnectionState state, BlockingQueue<Packet> incomingMessageQueue) {
-        super(connection, state);
+    public PeerConnectionListener(Socket connection, LocalPeerManager localPeerManager,
+                                  ConnectionState state, BlockingQueue<Packet> incomingMessageQueue) {
+        super(connection, localPeerManager, state);
 
         this.messageQueue = incomingMessageQueue;
     }
 
     public void run() {
         try {
-            // Get the input stream
             this.in = new DataInputStream(this.connection.getInputStream());
 
             // Listen to the first incoming message (handshake)
-            this.messageQueue.put(listenToHandshake());
+            byte[] message = this.readBytes(HandshakePacket.HANDSHAKE_LENGTH);
+            this.messageQueue.put(new HandshakePacket(message));
 
             // Wait for the handshake to be finished
             this.state.waitForHandshake();
             this.state.unlockHandshake();
 
-            // Start listening to incoming messages
+            // Start listening to incoming messages until the connection is closed
             while (this.state.isConnectionActive()) {
                 this.messageQueue.put(this.listenToMessage());
             }
-        } catch (IOException | InterruptedException e) {
-            // super.state.setConnectionActive(false);
-//            throw new RuntimeException(e);
+        } catch (IOException | InterruptedException exception) {
+            System.err.println("An error occurred when listening to incoming packets with peer " +
+                    this.state.getRemotePeerId());
         } finally {
             try {
-                System.out.println("[LISTENER] Closing input stream with peer " + this.state.getRemotePeerId());
+                Logger.print(Tag.LISTENER, "Closing input stream with peer " + this.state.getRemotePeerId());
 
                 this.in.close();
             } catch(IOException ioException){
-                System.out.println("[LISTENER] Failed to close input stream with peer " + this.state.getRemotePeerId());
+                System.err.println("An error occurred when closing the input stream with peer " +
+                        this.state.getRemotePeerId());
             }
         }
     }
 
-    private byte[] readBytes(int length) {
-        try {
-            if(length > 0) {
-                // System.out.println("[DEBUG] Trying to read " + length + " bytes");
-                byte[] message = new byte[length];
-                this.in.readFully(message, 0, message.length);
-                return message;
-            }
-        } catch(IOException exception) {
-            // System.out.println("[DEBUG] Tried to read and failed");
-        }
 
-        return null;
-    }
-
+    /**
+     * Listen to a single incoming message.
+     * This is done by reading 4 bytes, which is the predefined number of bytes for the length header,
+     * and then reading ${lengthHeader} bytes where length is the 4-byte value read.
+     *
+     * @return   Receive, parsed packet. Unknown if an unknown packet was received.
+     */
     private Packet listenToMessage() {
-        // TODO: check if there's a message in the input stream
-        // Matthew: why do we need to check if there is a message waiting? if there isnt, then this will just block
-        // and since this is in its own dedicated thread, that is fine, right?
-
         // Read the length of the incoming packet
         byte[] lengthHeaderBytes = this.readBytes(4);
         int lengthHeader = lengthHeaderBytes == null ? 0 : ByteBuffer.wrap(lengthHeaderBytes).getInt();
@@ -83,12 +77,31 @@ public class PeerConnectionListener extends PeerConnection {
         byte[] payload = this.readBytes(lengthHeader);
 
         // Create packet from the read payload
-        return Packet.PacketFromBytes(payload);
+        Packet packet = Packet.PacketFromBytes(payload);
+
+        Logger.print(Tag.LISTENER, "Parsed packet of type " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId());
+
+        return packet;
     }
 
-    private Packet listenToHandshake() {
-        System.out.println("[LISTENER] Listening to Handshake Packet");
-        byte[] message = this.readBytes(HandshakePacket.HANDSHAKE_LENGTH);
-        return new HandshakePacket(message);
+    /**
+     * Reads ${length} amount of bytes from the input stream
+     *
+     * @param length   Number of bytes to read
+     * @return         Read byte array
+     */
+    private byte[] readBytes(int length) {
+        try {
+            if(length > 0) {
+                byte[] message = new byte[length];
+                this.in.readFully(message, 0, message.length);
+                return message;
+            }
+        } catch(IOException exception) {
+            System.out.println("[DEBUG] Tried to read and failed");
+        }
+
+        return null;
     }
 }

@@ -45,6 +45,7 @@ public enum PieceStatus {
         for(int i = bitSet.length(); i < pieces.length; i++) {
             pieces[i] = PieceStatus.NOT_HAVE;
         }
+        
         return pieces;
     }
 }

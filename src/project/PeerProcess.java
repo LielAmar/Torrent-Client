@@ -1,7 +1,7 @@
 package project;
 
-import project.connection.piece.PieceStatus;
-import project.utils.Triplet;
+import project.utils.Logger;
+import project.utils.Tag;
 
 import java.io.*;
 
@@ -14,6 +14,7 @@ import java.util.List;
 import java.nio.file.Paths;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 public class PeerProcess {
@@ -21,40 +22,61 @@ public class PeerProcess {
     private final static String COMMON_CONFIG_FILE = "Common.cfg";
     private final static String PEER_INFO_CONFIG_FILE = "PeerInfo.cfg";
 
-    public static Configuration config; // TODO: might wanna change config to not be static somehow...
-    public static LocalPeerManager localPeerManager;
-
-    private static int localPeerId;
-
     public static void main(String[] args) {
         if (args.length != 1) {
-            System.err.println("Please specify a Peer ID!");
-            return;
+            System.err.println("No Peer ID was specified");
+            System.exit(1);
         }
 
         // Set up the configuration
-        setupConfiguration();
+        Configuration config = setupConfiguration(COMMON_CONFIG_FILE);
 
         // Set up the local peer manager
-        localPeerId = Integer.parseInt(args[0]);
-        PeerProcess.localPeerManager = new LocalPeerManager(localPeerId, PeerProcess.config.getNumberOfPieces());
+        int localPeerId = Integer.parseInt(args[0]);
+        LocalPeerManager localPeerManager = new LocalPeerManager(localPeerId, config);
 
         // Set up all peer connections
-        setupPeerConnections();
+        setupPeerConnections(PEER_INFO_CONFIG_FILE, localPeerManager);
+    }
+
+
+    private static class Peer {
+
+        /*
+        A local class used to save data on peers from the peer info file
+         */
+
+        final int peerId;
+        final String hostname;
+        final int port;
+        final boolean hasFile;
+
+        Peer(String line) {
+            peerId = Integer.parseInt(line.split(" ")[0]);
+            hostname = line.split(" ")[1];
+            port = Integer.parseInt(line.split(" ")[2]);
+            hasFile = Integer.parseInt(line.split(" ")[3]) == 1;
+        }
     }
 
 
     /**
-     * Parses the Common.cfg file and sets up the configuration
+     * Opens the given configuration file and sets up a configuration object to be used throughout the program
+     * In case the configuration is unable to be set up properly, a system exit would execute with code 1.
+     *
+     * @param configurationPath   Path to the configuration file to parse
+     * @return                    Configuration object
      */
-    private static void setupConfiguration() {
-        System.out.println("[CONFIGURATION] Setting up the configuration");
+    private static Configuration setupConfiguration(String configurationPath) {
+        Logger.print(Tag.CONFIGURATION, "Setting up the configuration");
 
-        try (Stream<String> stream = Files.lines(Paths.get(COMMON_CONFIG_FILE))) {
+        Configuration config = null;
+
+        // Attempts to open the configuration file given, and create the configuration object
+        try (Stream<String> stream = Files.lines(Paths.get(configurationPath))) {
             String[] rows = stream.map(line -> line.replaceAll("\r", "")).toArray(String[]::new);
 
-            // Set up the configuration object
-            PeerProcess.config = new Configuration(
+            config = new Configuration(
                     Integer.parseInt(rows[0].split(" ")[1]), // number of preferred neighbors
                     Integer.parseInt(rows[1].split(" ")[1]), // unchoking interval
                     Integer.parseInt(rows[2].split(" ")[1]), // optimistic unchoking interval
@@ -63,155 +85,133 @@ public class PeerProcess {
                     Integer.parseInt(rows[5].split(" ")[1])  // piece size
             );
 
-            System.out.println(PeerProcess.config);
+            System.out.println(config);
+        } catch (NumberFormatException exception) {
+            System.err.println("An error occurred when trying to parse some values in the given configuration file!");
+            System.exit(1);
         } catch (IOException exception) {
-            System.out.println("An error occurred when trying to set up the configuration!");
+            System.err.println("An error occurred when trying to open the given configuration file!");
             System.exit(1);
         }
 
-        System.out.println("[CONFIGURATION] Finished setting up the configuration\n");
+        Logger.print(Tag.CONFIGURATION, "Finished setting up the configuration");
+
+        return config;
     }
 
     /**
-     * Parses the peerInfo.cfg file, opens connections with previous peers & starts listening to incoming connections.
+     * Opens the given peer info file and sets up all connections to all other peers.
+     * In case the connections are unable to be set up properly, a system exit would execute with code 1.
+     *
+     * @param peerInfoPath       Path to the peer info file to parse
+     * @param localPeerManager   An object representing the local peer
      */
-    private static void setupPeerConnections() {
-        System.out.println("[CONNECTIONS] Setting up peer connections");
+    private static void setupPeerConnections(String peerInfoPath, LocalPeerManager localPeerManager) {
+        Logger.print(Tag.CONNECTIONS, "Setting up peer connections");
 
-        AtomicInteger localPort = new AtomicInteger();
-        
-        // this is what i want it to look like:
-        // int expectedConnections = 0;
-        // but it causes a local variable defined in enclosing scope must be final, so im doing this instead:
-        // since i can still append to a list, just append every time and then use the 
-        List<Integer> expectedConnections = new ArrayList<>();
-        
+        List<Peer> pendingConnections = new ArrayList<>();
+        AtomicReference<Peer> localPeer = new AtomicReference<>(null);
+        AtomicInteger expectedConnections = new AtomicInteger(0);
 
-        List<Triplet<Integer, String, Integer>> pendingConnections = new ArrayList<>();
-
-        try (Stream<String> stream = Files.lines(Paths.get(PEER_INFO_CONFIG_FILE))) {
+        // Attempts to open the peer info file given, and parse each line, which represents a single peer
+        try (Stream<String> stream = Files.lines(Paths.get(peerInfoPath))) {
             stream.forEach(line -> {
-                String[] values = line.split(" ");
+                Peer peer = new Peer(line);
 
-                int peerId = Integer.parseInt(values[0]);
-
-                if(peerId < localPeerId) {
-                    String hostname = values[1];
-                    int port = Integer.parseInt(values[2]);
-
-                    pendingConnections.add(new Triplet<>(peerId, hostname, port));
-                } else if (peerId == localPeerId) {
-                    boolean hasFile = Integer.parseInt(values[3]) == 1;
-
-                    loadLocalPieces(hasFile);
-
-                    localPort.set(Integer.parseInt(values[2]));
-                }
-                else
-                {
-                    expectedConnections.add(Integer.valueOf(0));
-                    // expectedConnections++;
+                // If the current parsed peer the local peer, set it up
+                // Otherwise, set up the remote peer for either pending or expected connection
+                if(peer.peerId == localPeerManager.getLocalPeerId()) {
+                    localPeer.set(peer);
+                } else {
+                    // If the local peer has not yet been set, it means this is a pending connection, otherwise it's
+                    // an expected connection
+                    if(localPeer.get() == null) {
+                        pendingConnections.add(peer);
+                    } else {
+                        expectedConnections.incrementAndGet();
+                    }
                 }
             });
+        } catch (NumberFormatException exception) {
+            System.err.println("An error occurred when trying to parse some values in the given peer info file!");
+            System.exit(1);
         } catch (IOException exception) {
-            System.out.println("An error occurred when trying to set up connections!");
+            System.err.println("An error occurred when trying to open the given peer info file!");
             System.exit(1);
         }
 
-        // Connect to all previous peers
-        for(Triplet<Integer, String, Integer> triplet : pendingConnections) {
-            connectToPeer(triplet.getFirst(), triplet.getSecond(), triplet.getThird());
+        if(localPeer.get() == null) {
+            System.err.println("The given peer id didn't match any peer in the peer info file!");
+            System.exit(1);
         }
 
-        // Start listening to incoming connections
-        // have to get the number of expected connections in a somewhat roundabout way, but it works for now
-        listenToIncomingConnections(localPort.get(), expectedConnections.size());
+        // Finish setting up the local peer's pieces according to whether it has the file or not
+        try {
+            localPeerManager.setupInitialPieces(localPeer.get().hasFile);
+        } catch (IOException exception) {
+            System.err.println("An error occurred when trying to open the local target file!");
+            System.exit(1);
+        }
+
+        // Open connections to all peers previous to local peer
+        for(Peer peer : pendingConnections) {
+            PeerProcess.connectToPeer(localPeerManager, peer);
+        }
+
+        // Listen to connections from all expected peers
+        PeerProcess.listenToIncomingConnections(localPeerManager, localPeer.get().port, expectedConnections.get());
     }
 
-    /**
-     * Connects to a different peer process that's listening to connections
-     *
-     * @param peerId     ID of the peer to connect to
-     * @param hostname   Hostname of the peer to connect to
-     * @param port       Port of the peer to connect to
-     */
-    private static void connectToPeer(int peerId, String hostname, int port) {
-        try {
-            System.out.println("[CLIENT] Attempting to connect to peer " + peerId + " at host " + hostname + ":" + port);
 
-            // Create a socket connection to the given peer and then create two peer connections:
-            // 1. A listener connection for listening to incoming messages
-            // 2. A sender connection for sending outgoing messages
-            Socket socket = new Socket(hostname, port);
-            PeerProcess.localPeerManager.connectToNewPeer(peerId, socket).start();
+    /**
+     * Connects the local peer (client) to a remote peer (server) by:
+     * 1. Creating a socket with the remote peer's hostname and port
+     * 2. Calling PeerProcess#connectToPeer
+     *
+     * @param localPeerManager   An object representing the local peer
+     * @param peer               Peer to connect to
+     */
+    private static void connectToPeer(LocalPeerManager localPeerManager, Peer peer) {
+        try {
+            Logger.print(Tag.CLIENT, "Attempting to connect to peer " +
+                    peer.peerId + " at host " + peer.hostname + ":" + peer.port);
+
+            Socket socket = new Socket(peer.hostname, peer.port);
+            localPeerManager.connectToPeer(peer.peerId, socket).start();
         } catch (IOException exception) {
-            System.out.println("An error occurred when trying to connect to a remote peer!");
+            System.err.println("An error occurred when trying to connect to a remote peer");
             System.exit(1);
         }
     }
 
     /**
-     * Listens to incoming peer connection requests
+     * Connects the local peer (server) to a remote peer (client) by:
+     * 1. Accepting a socket with the remote peer
+     * 2. Calling PeerProcess#connectToPeer
      *
-     * @param port   Port on which to listen
+     * @param localPeerManager      An object representing the local peer
+     * @param localPort             Port on which to listen to incoming peer connections
+     * @param expectedConnections   Number of expected connections to have
      */
-    private static void listenToIncomingConnections(int port, int expectedConnections) {
-        int connectionsRecieved = 0;
-
+    private static void listenToIncomingConnections(LocalPeerManager localPeerManager, int localPort,
+                                                    int expectedConnections) {
         try {
-            try (ServerSocket listener = new ServerSocket(port)) {
-                System.out.println("[SERVER] Listening to connections from peers on port " + port);
+            try (ServerSocket listener = new ServerSocket(localPort)) {
+                Logger.print(Tag.CLIENT, "Listening to incoming connections on port " + localPort);
 
-                while (connectionsRecieved < expectedConnections) {
-                    System.out.println("[SERVER] Attempting to connect to peer " + "-1" + " at host " + "unknown" + ":" + "unknown");
-
-                    // Create a socket connection to the given peer and then create two peer connections:
-                    // 1. A listener connection for listening to incoming messages
-                    // 2. A sender connection for sending outgoing messages
+                while (expectedConnections > 0) {
                     Socket socket = listener.accept();
-                    PeerProcess.localPeerManager.connectToNewPeer(socket).start();
-                    connectionsRecieved++;
+
+                    Logger.print(Tag.CLIENT, "Attempting to accept a connection from an unknown remote peer");
+
+                    localPeerManager.connectToPeer(socket).start();
+
+                    expectedConnections--;
                 }
             }
         } catch (IOException exception) {
-            System.out.println("An error occurred when a remote peer tried to connect to server!");
+            System.err.println("An error occurred when trying to accept a connection from a remote peer");
             System.exit(1);
-        }
-    }
-
-    /**
-     * Loads the local pieces into the ram
-     *
-     * @param hasFile   Whether the local peer has the file
-     */
-    private static void loadLocalPieces(boolean hasFile) {
-        if (hasFile) {
-            // removed rundir from the path, because the program will be running in that directory already
-            String filePath = /*"RunDir" + File.separator + */ "peer_" + localPeerId + File.separator + PeerProcess.config.getFileName();
-            File file = new File((new File(filePath)).getAbsolutePath());
-
-            byte[] data = new byte[(int) file.length()];
-
-            try(FileInputStream fis = new FileInputStream(file)) {
-                fis.read(data);
-            } catch (IOException exception) {
-                System.out.println("An error occurred when tried to read file to transfer!");
-                System.out.print(exception);
-                exception.printStackTrace();
-                System.exit(1);
-            }
-
-            for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
-                int pieceSize = Math.min(PeerProcess.config.getPieceSize(), PeerProcess.config.getFileSize() - i * PeerProcess.config.getPieceSize());
-                byte[] buffer = new byte[pieceSize];
-                System.arraycopy(data, i * PeerProcess.config.getPieceSize(), buffer, 0, buffer.length);
-                PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.HAVE, buffer);
-            }
-        } else {
-            // Set all local pieces to NOT_HAVE with null content
-            for(int i = 0; i < PeerProcess.config.getNumberOfPieces(); i++) {
-                PeerProcess.localPeerManager.setLocalPiece(i, PieceStatus.NOT_HAVE, null);
-            }
         }
     }
 }

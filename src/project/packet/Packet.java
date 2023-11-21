@@ -58,10 +58,7 @@ public abstract class Packet {
         };
 
         if(packet == null || !packet.parse(messagePayload)) {
-            System.out.println("[PACKET] Attempt to parse a packet from a given payload has failed! Creating Unknown packet instead");
             packet = new UnknownPacket();
-        } else {
-            System.out.println("[PACKET] Attempt to parse a packet from a given payload was successful! Parsed packet of type " + packet.getTypeString());
         }
 
         return packet;
