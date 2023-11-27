@@ -76,6 +76,12 @@ public class PeerConnectionManager extends PeerConnection {
             Logger.print(Tag.PEER_CONNECTION_MANAGER, "Handshake received and parsed successfully");
             super.state.unlockHandshake();
 
+            // Log the connection according to who connected to who
+            if(this.state.isLocalConnectedToRemote()) {
+                this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() + " makes a connection to Peer " + this.state.getRemotePeerId() + ".");
+            } else {
+                this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() + " is connected from Peer " + this.state.getRemotePeerId() + ".");
+            }
 
             // Create and send the second packet: bitfield packet
             this.localPeerManager.acquireBitmapLock();

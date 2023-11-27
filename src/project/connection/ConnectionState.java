@@ -12,6 +12,11 @@ public class ConnectionState {
     private int remotePeerId;
     private PieceStatus[] pieces;
 
+    private final AtomicBoolean connectionActive;
+    private final AtomicBoolean sentBitfield;
+
+    private final Lock handshakeLock;
+
     private AtomicBoolean localChoked;
     private AtomicBoolean remoteChoked;
 
@@ -19,10 +24,8 @@ public class ConnectionState {
     private AtomicBoolean localInterestedIn;
     private AtomicInteger downloadSpeed;
 
-    private final AtomicBoolean connectionActive;
-    private final AtomicBoolean sentBitfield;
-
-    private final Lock handshakeLock;
+    // A variable used to tell if the local peer connected to this, remote peer, or vice versa.
+    private boolean localConnectedToRemote;
 
 
     public ConnectionState(int remotePeerId) {
@@ -46,6 +49,8 @@ public class ConnectionState {
         this.sentBitfield = new AtomicBoolean(false);
 
         this.handshakeLock = new ReentrantLock();
+
+        this.localConnectedToRemote = true;
     }
 
 
@@ -145,5 +150,14 @@ public class ConnectionState {
 
     public void unlockHandshake() {
         this.handshakeLock.unlock();
+    }
+
+
+    public boolean isLocalConnectedToRemote() {
+        return this.localConnectedToRemote;
+    }
+
+    public void setLocalConnectedToRemote(boolean choice) {
+        this.localConnectedToRemote = choice;
     }
 }

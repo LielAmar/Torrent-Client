@@ -61,6 +61,9 @@ public class PeerConnectionHandler {
      */
     private void handleChoke(ChokePacket packet) {
         this.state.setRemoteChoke(true);
+
+        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
+                " is choked by " + this.state.getRemotePeerId() + ".");
     }
 
     /**
@@ -74,6 +77,9 @@ public class PeerConnectionHandler {
      */
     private void handleUnchoke(UnchokePacket packet) {
         this.state.setRemoteChoke(false);
+
+        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
+                " is unchoked by " + this.state.getRemotePeerId() + ".");
 
         int pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
 
@@ -93,6 +99,9 @@ public class PeerConnectionHandler {
      */
     private void handleInterested(InterestedPacket packet) {
         this.state.setInterested(true);
+
+        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
+                " received the ‘interested’ message from " + this.state.getRemotePeerId() + ".");
     }
 
     /**
@@ -105,6 +114,9 @@ public class PeerConnectionHandler {
      */
     private void handleNotInterested(NotInterestedPacket packet) {
         this.state.setInterested(false);
+
+        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
+                " received the ‘not interested’ message from " + this.state.getRemotePeerId() + ".");
     }
 
     /**
@@ -146,6 +158,9 @@ public class PeerConnectionHandler {
         int pieceIndex = packet.getPieceIndex();
 
         this.state.updatePiece(pieceIndex);
+
+        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
+                " received the ‘have’ message from " + this.state.getRemotePeerId() + " for the piece " + pieceIndex + ".");
 
         if(this.hasInterest()) {
             this.sendInterested();
@@ -205,6 +220,10 @@ public class PeerConnectionHandler {
     private void handlePiece(PiecePacket packet) {
         this.localPeerManager.setLocalPiece(packet.getPieceIndex(), PieceStatus.HAVE, packet.getPieceContent());
         this.state.increaseDownloadSpeed();
+
+        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
+                " has downloaded the piece " + packet.getPieceIndex() + "from " + this.state.getRemotePeerId() + "." +
+                " Now the number of pieces it has is " + this.localPeerManager.getLocalPiecesCount() + ".");
 
         // If there's more pieces to request, request one.
         int pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());

@@ -29,13 +29,16 @@ public class LocalPeerManager {
     private static final Random random = new Random();
     private static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
+    private static final String DIRECTORY = "peer_%d";
+
     private final int localPeerId;
 
     private final Configuration config;
+    private final Logger logger;
+
+    private final ArrayList<PeerConnectionManager> connectedPeers;
 
     private final Piece[] localPieces;
-    private final Lock choosePieceLock;
-    private final ArrayList<PeerConnectionManager> connectedPeers;
 
     /*
      * I noticed some potential problems in how the bitmap packet is generated and sent,
@@ -60,6 +63,7 @@ public class LocalPeerManager {
      *
      */
     private final ReadWriteLock bitmapLock;
+    private final Lock choosePieceLock;
 
     private PeerConnectionManager optimisticallyUnchokedPeer;
 
@@ -67,6 +71,8 @@ public class LocalPeerManager {
         this.localPeerId = localPeerId;
 
         this.config = config;
+        this.logger = new Logger(String.format(DIRECTORY, this.localPeerId) +
+                File.separator + "log_peer_" + this.localPeerId + ".log");
 
         this.localPieces = new Piece[this.config.getNumberOfPieces()];
 
@@ -93,9 +99,25 @@ public class LocalPeerManager {
         return this.config;
     }
 
+    public Logger getLogger() {
+        return logger;
+    }
+
 
     public Piece[] getLocalPieces() {
         return this.localPieces;
+    }
+
+    public int getLocalPiecesCount() {
+        int count = 0;
+
+        for(int i = 0; i < this.localPieces.length; i++) {
+            if(this.localPieces[i] != null && this.localPieces[i].getStatus() == PieceStatus.HAVE) {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     public void setLocalPiece(int pieceId, PieceStatus status, byte[] content) {
@@ -146,7 +168,13 @@ public class LocalPeerManager {
 
 
     public PeerConnectionManager connectToPeer(Socket socket) {
-        return this.connectToPeer(-1, socket);
+        PeerConnectionManager manager = this.connectToPeer(-1, socket);
+
+        // This method is being called when remote is connecting to local, in which case we update this value
+        // to false in order to remember remote connected to local and not local connected to remote
+        manager.getConnectionState().setLocalConnectedToRemote(false);
+
+        return manager;
     }
 
     /**
@@ -204,7 +232,7 @@ public class LocalPeerManager {
      * @throws IOException   Throws an IOException if reading the target file failed
      */
     private byte[] getLocalFileBytes() throws IOException {
-        String filePath = "peer_" + this.localPeerId + File.separator + this.config.getFileName();
+        String filePath = String.format(DIRECTORY, this.localPeerId) + File.separator + this.config.getFileName();
         File file = new File((new File(filePath)).getAbsolutePath());
 
         byte[] data = new byte[(int) file.length()];
@@ -301,6 +329,10 @@ public class LocalPeerManager {
         });
 
         this.connectedPeers.forEach(peer -> peer.getConnectionState().resetDownloadSpeed());
+
+        this.logger.log("Peer " + this.localPeerId + " has the preferred neighbors " +
+                unchoked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
+                                .collect(Collectors.joining(",")) + ".");
     }
 
     /**
@@ -320,6 +352,9 @@ public class LocalPeerManager {
             this.optimisticallyUnchokedPeer.getConnectionState().setLocalChoked(false);
             this.optimisticallyUnchokedPeer.getHandler().sendUnchoke();
         }
+
+        this.logger.log("Peer " + this.localPeerId + " has the optimistically unchoked neighbor " +
+                this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() + ".");
     }
 
 
@@ -343,7 +378,7 @@ public class LocalPeerManager {
      * through a byte buffer
      */
     private void dumpFile() {
-        String filePath =  "peer_" + this.localPeerId + File.separator + this.config.getFileName();
+        String filePath = String.format(DIRECTORY, this.localPeerId) + File.separator + this.config.getFileName();
 
         File file = new File((new File(filePath)).getAbsolutePath());
 
@@ -358,6 +393,8 @@ public class LocalPeerManager {
             }
 
             Logger.print(Tag.LOCAL_PEER_MANAGER, "Dumped all content into the file");
+
+            this.logger.log("Peer " + this.localPeerId + " has downloaded the complete file.");
         } catch (IOException e) {
             System.err.println("An error occurred when trying to dump the content into the file");
         }
