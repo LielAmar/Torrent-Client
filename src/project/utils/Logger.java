@@ -20,7 +20,7 @@ public class Logger {
 
     public Logger(String filePath) {
         try {
-            File logFile = new File(filePath);
+            File logFile = new File((new File(filePath)).getAbsolutePath());
 
             if(!logFile.exists()) {
                 boolean created = logFile.createNewFile();
@@ -38,7 +38,7 @@ public class Logger {
             return;
         }
 
-        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime());
+        String timestamp = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(Calendar.getInstance().getTime());
 
         try {
             this.writer.write("[" + timestamp + "] " + message + "\n");

@@ -84,9 +84,9 @@ public class LocalPeerManager {
         this.optimisticallyUnchokedPeer = null;
 
         // Start the scheduler for reevaluating unchoked peers & optimistic unchoked peer
-        executor.scheduleAtFixedRate(this::reevaluateUnchokedPeers, 0,
+        executor.scheduleAtFixedRate(this::reevaluateUnchokedPeers, this.config.getUnchokingInterval(),
                 this.config.getUnchokingInterval(), TimeUnit.SECONDS);
-        executor.scheduleAtFixedRate(this::reevaluateOptimisticPeer, 0,
+        executor.scheduleAtFixedRate(this::reevaluateOptimisticPeer, this.config.getOptimisticUnchokingInterval(),
                 this.config.getOptimisticUnchokingInterval(), TimeUnit.SECONDS);
     }
 
@@ -456,13 +456,15 @@ public class LocalPeerManager {
         if(this.connectedPeers.isEmpty()) {
             executor.close();
 
+            this.logger.close();
+
             try {
-                Thread.sleep(10000);
+                Thread.sleep(5000);
             } catch(InterruptedException exception) {
                 exception.printStackTrace();
             }
 
-            // System.exit(0);
+            System.exit(0);
         }
     }
 }
