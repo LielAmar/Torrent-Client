@@ -181,6 +181,7 @@ public class PeerProcess {
             localPeerManager.connectToPeer(peer.peerId, socket).start();
         } catch (IOException exception) {
             System.err.println("An error occurred when trying to connect to a remote peer");
+            System.err.println(exception);
             System.exit(1);
         }
     }

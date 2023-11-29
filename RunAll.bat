@@ -17,7 +17,8 @@ rmdir /S /Q RunDir
 xcopy RunDirClean RunDir /E /I
 
 for /L %%i IN (%peerIDStart%, 1, %peerIDEnd%) DO (
-    ping 192.0.2.2 -n 1 -w 1000 > nul
+    ::ping 192.0.2.2 -n 1 -w 1000 > nul
+    timeout 1 > nul
     ::start "Peer %%i" java -Duser.dir="%rundir%" -cp "%builddir%" %mainfile% %%i
     start "Peer %%i" Run.bat %%i
 )

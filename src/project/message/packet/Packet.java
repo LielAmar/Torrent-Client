@@ -46,17 +46,38 @@ public abstract class Packet extends Message{
      * @return                 Built packet from payload
      */
     public static Packet PacketFromBytes(byte[] messagePayload) {
-        Packet packet = switch (PacketType.fromPayload(messagePayload)) {
-            case CHOKE -> new ChokePacket();
-            case UNCHOKE -> new UnchokePacket();
-            case INTERESTED -> new InterestedPacket();
-            case NOT_INTERESTED -> new NotInterestedPacket();
-            case HAVE -> new HavePacket();
-            case BITFIELD -> new BitFieldPacket();
-            case REQUEST -> new RequestPacket();
-            case PIECE -> new PiecePacket();
-            case HANDSHAKE -> new HandshakePacket(messagePayload);
-            default -> null;
+        Packet packet;
+        switch (PacketType.fromPayload(messagePayload)) {
+        case CHOKE:
+            packet =  new ChokePacket();
+            break;
+        case UNCHOKE:
+            packet =  new UnchokePacket();
+            break;
+        case INTERESTED:
+            packet =  new InterestedPacket();
+            break;
+        case NOT_INTERESTED:
+            packet =  new NotInterestedPacket();
+            break;
+        case HAVE:
+            packet =  new HavePacket();
+            break;
+        case BITFIELD:
+            packet =  new BitFieldPacket();
+            break;
+        case REQUEST:
+            packet =  new RequestPacket();
+            break;
+        case PIECE:
+            packet =  new PiecePacket();
+            break;
+        case HANDSHAKE:
+            packet =  new HandshakePacket(messagePayload);
+            break;
+        default:
+            packet = null;
+            break;
         };
 
         if(packet == null || !packet.parse(messagePayload)) {
