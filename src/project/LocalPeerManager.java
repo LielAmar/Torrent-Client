@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -310,7 +311,7 @@ public class LocalPeerManager extends Thread {
                         //     return random.nextInt(2) == 0 ? 1 : -1;
                         // }
                         return pA.getConnectionState().getDownloadSpeed() - pB.getConnectionState().getDownloadSpeed();
-                    }).filter(peer -> peer.getConnectionState().isInterested()).toList();
+                    }).filter(peer -> peer.getConnectionState().isInterested()).collect(Collectors.toList());
             // check for ties, and randomize if necessary
             if(unchokedTemp.size() > this.config.getNumberOfPreferredNeighbors())
             {
@@ -325,7 +326,7 @@ public class LocalPeerManager extends Thread {
 
                     List<Integer> l = IntStream.range(0, tiedPeers).boxed().collect(Collectors.toList());
                     Collections.shuffle(l);
-                    l = l.stream().limit(slotsForTiedPeers).toList();
+                    l = l.stream().limit(slotsForTiedPeers).collect(Collectors.toList());;
                     List<PeerConnectionManager> unchokedRandomized = new ArrayList<>();
                     for(int i = 0; i< peersAboveTied; i++)
                     {
@@ -348,8 +349,7 @@ public class LocalPeerManager extends Thread {
 
         // The rest of the connected peers (except for the optimistically unchoke peer) are to be choked.
         List<PeerConnectionManager> choked = this.connectedPeers.stream()
-                .filter(peer -> peer != this.optimisticallyUnchokedPeer && !unchoked.contains(peer))
-                .toList();
+                .filter(peer -> peer != this.optimisticallyUnchokedPeer && !unchoked.contains(peer)).collect(Collectors.toList());;
 
         Logger.print(Tag.EXECUTOR, "Re-evaluated unchoked remote peers. Unchoking peers: " +
                 unchoked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
@@ -388,8 +388,7 @@ public class LocalPeerManager extends Thread {
      */
     private void reevaluateOptimisticPeer() {
         List<PeerConnectionManager> choked = this.connectedPeers.stream()
-                .filter(peer -> !peer.getConnectionState().isLocalChoked() && peer.getConnectionState().isInterested())
-                .toList();
+                .filter(peer -> !peer.getConnectionState().isLocalChoked() && peer.getConnectionState().isInterested()).collect(Collectors.toList());;
         if (choked.size() == 0)
         {
             Logger.print(Tag.EXECUTOR,

@@ -35,20 +35,37 @@ public class PeerConnectionHandler {
                 this.state.getRemotePeerId());
 
         switch (packet.getType()) {
-            case CHOKE -> handleChoke((ChokePacket) packet);
-            case UNCHOKE -> handleUnchoke((UnchokePacket) packet);
+            case CHOKE:
+                handleChoke((ChokePacket) packet);
+                break;
+            case UNCHOKE:
+                handleUnchoke((UnchokePacket) packet);
+                break;
 
-            case INTERESTED -> handleInterested((InterestedPacket) packet);
-            case NOT_INTERESTED -> handleNotInterested((NotInterestedPacket) packet);
+            case INTERESTED:
+                handleInterested((InterestedPacket) packet);
+                break;
+            case NOT_INTERESTED:
+                handleNotInterested((NotInterestedPacket) packet);
+                break;
 
-            case BITFIELD -> handleBitfield((BitFieldPacket) packet);
+            case BITFIELD:
+                handleBitfield((BitFieldPacket) packet);
+                break;
 
-            case HAVE -> handleHave((HavePacket) packet);
+            case HAVE:
+                handleHave((HavePacket) packet);
+                break;
 
-            case REQUEST -> handleRequest((RequestPacket) packet);
-            case PIECE -> handlePiece((PiecePacket) packet);
+            case REQUEST:
+                handleRequest((RequestPacket) packet);
+                break;
+            case PIECE:
+                handlePiece((PiecePacket) packet);
+                break;
 
-            default -> {}
+            default:
+                break;
         }
     }
 
