@@ -1,7 +1,6 @@
 package project.connection;
 
 import project.LocalPeerManager;
-import project.message.Message;
 import project.message.packet.Packet;
 import project.message.packet.packets.*;
 import project.utils.Logger;
@@ -11,7 +10,6 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.concurrent.BlockingQueue;
 
 public class PeerConnectionListener extends PeerConnection {
 
@@ -104,7 +102,8 @@ public class PeerConnectionListener extends PeerConnection {
                 return message;
             }
         } catch (IOException exception) {
-            System.err.println("IO Exception In listener " +this.state.getRemotePeerId()+ " \n" +  exception);
+            // this exception should only happen when the connetion is closed, in which case we should be exiting anyways
+            // System.err.println("IO Exception In listener " +this.state.getRemotePeerId()+ " \n" +  exception);
             // exception.printStackTrace(System.err);
         }
 

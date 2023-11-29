@@ -4,10 +4,7 @@ import java.io.IOException;
 import java.net.Socket;
 
 import project.LocalPeerManager;
-import project.connection.piece.PieceStatus;
-import project.message.Message;
 import project.message.InternalMessage.InternalMessage;
-import project.message.InternalMessage.InternalMessages.ReceivedIntMes;
 import project.message.InternalMessage.InternalMessages.NewLocalPeiceIntMes;
 import project.message.packet.Packet;
 import project.message.packet.PacketType;
@@ -17,7 +14,6 @@ import project.utils.Tag;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -28,7 +24,6 @@ public class PeerConnectionManager extends PeerConnection {
 
     // this is only used until the handshake is recieved, afterwards it is ignored
     private final BlockingQueue<InternalMessage> incomingControlMessageQueue;
-    private final ReadWriteLock controlMessageLock;
 
     private final PeerConnectionSender sender;
     private final PeerConnectionListener listener;
@@ -42,7 +37,6 @@ public class PeerConnectionManager extends PeerConnection {
         this.outgoingPacketQueue = new LinkedBlockingQueue<>();
 
         this.incomingControlMessageQueue = new LinkedBlockingQueue<>();
-        this.controlMessageLock = new ReentrantReadWriteLock();
 
         this.sender = new PeerConnectionSender(connection, localPeerManager, state, this.outgoingPacketQueue);
         this.listener = new PeerConnectionListener(connection, localPeerManager, state, this);
@@ -194,14 +188,15 @@ public class PeerConnectionManager extends PeerConnection {
         try {
             this.incomingControlMessageQueue.put(message);
             notifyAll();
-        }
-        catch (InterruptedException e)
-        {
-            System.err.println("An error occured while trying to send a control message to the PeerConnectionManager for peer "+ this.state.getRemotePeerId());
+        } catch (InterruptedException e) {
+            System.err.println(
+                    "An error occured while trying to send a control message to the PeerConnectionManager for peer "
+                            + this.state.getRemotePeerId());
             throw new RuntimeException(e);
         }
     }
-
+    
+    // used by the listener thread to send packets it to this manager thread 
     public synchronized void SendRecievedPacket(Packet packet)
     {
         try {
@@ -252,12 +247,4 @@ public class PeerConnectionManager extends PeerConnection {
         Logger.print(Tag.DEBUG, "Dumping state for peer " + this.state.getRemotePeerId());
         return String.format("Peer Connection %d%nlocalInterested: %b%nlocalRequested: %b%nlocalRequestedID: %d%nshouldBeInterested: %b%n", this.state.getRemotePeerId(), this.state.isLocalInterestedIn(), this.state.getPieceRequested(), this.state.getPieceRequestedID(), this.handler.hasInterest());
     }
-    // private void DisableBufferingControlMessages()
-    // {
-    //     this.controlMessageLock.writeLock().lock();
-
-    //     bufferControlMessages = false;
-    //     incomingControlMessageQueue.drainTo(incomingPacketQueue);
-    //     this.controlMessageLock.writeLock().unlock();
-    // }
 }

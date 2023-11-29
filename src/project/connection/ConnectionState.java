@@ -4,13 +4,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.io.ObjectInputFilter.Config;
-import java.util.BitSet;
-
 
 import project.connection.piece.PieceStatus;
-import project.connection.piece.Piece;
-
 
 public class ConnectionState {
 
