@@ -4,10 +4,15 @@ import project.connection.ConnectionState;
 import project.connection.PeerConnectionManager;
 import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
+import project.message.InternalMessage.InternalMessage;
+import project.message.InternalMessage.InternalMessages.ReceivedIntMes;
+import project.message.InternalMessage.InternalMessages.TerminateIntMes;
+import project.message.packet.Packet;
 import project.utils.Logger;
 import project.utils.Tag;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.Lock;
 import java.io.FileInputStream;
@@ -17,14 +22,18 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.LinkedTransferQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 
-public class LocalPeerManager {
+public class LocalPeerManager extends Thread {
 
     private static final Random random = new Random();
     private static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
@@ -39,6 +48,9 @@ public class LocalPeerManager {
     private final ArrayList<PeerConnectionManager> connectedPeers;
 
     private final Piece[] localPieces;
+    
+    private final BlockingQueue<InternalMessage> incomingControlMessages;
+
 
     /*
      * I noticed some potential problems in how the bitmap packet is generated and sent,
@@ -68,11 +80,12 @@ public class LocalPeerManager {
     private PeerConnectionManager optimisticallyUnchokedPeer;
 
     public LocalPeerManager(int localPeerId, Configuration config) {
+        this.incomingControlMessages = new LinkedBlockingQueue<>();
         this.localPeerId = localPeerId;
 
         this.config = config;
-        this.logger = new Logger(String.format(DIRECTORY, this.localPeerId) +
-                File.separator + "log_peer_" + this.localPeerId + ".log");
+        this.logger = new Logger(Paths.get(String.format(DIRECTORY, this.localPeerId) +
+                File.separator + "log_peer_" + this.localPeerId + ".log").toAbsolutePath().toString());
 
         this.localPieces = new Piece[this.config.getNumberOfPieces()];
 
@@ -120,7 +133,7 @@ public class LocalPeerManager {
         return count;
     }
 
-    public void setLocalPiece(int pieceId, PieceStatus status, byte[] content) {
+    private void setLocalPiece(int pieceId, PieceStatus status, byte[] content) {
         Logger.print(Tag.LOCAL_PEER_MANAGER, "Updating piece " + pieceId + " status to " + status.name());
 
         this.bitmapLock.readLock().lock();
@@ -402,29 +415,34 @@ public class LocalPeerManager {
 
 
     public void attemptTerminate() {
-        for(int i = 0; i < this.getLocalPieces().length; i++) {
-            if(this.getLocalPieces()[i].getStatus() == PieceStatus.NOT_HAVE) {
-                return;
-            }
+        // for(int i = 0; i < this.getLocalPieces().length; i++) {
+        //     if(this.getLocalPieces()[i].getStatus() == PieceStatus.NOT_HAVE) {
+        //         return;
+        //     }
+        // }
+
+        // ^ this can just be replaced by the completedTransfer function which we already have, right?
+        if (!completedTransfer()) {
+            return;
         }
 
         List<PeerConnectionManager> connectedPeersCopy = new ArrayList<>(this.connectedPeers);
 
         connectedPeersCopy.stream()
-            .filter(peerConnectionManager -> {
-                if(peerConnectionManager == null) {
-                    return false;
-                }
-                
-                for(int i = 0; i < peerConnectionManager.getConnectionState().getPieces().length; i++) {
-                    if(peerConnectionManager.getConnectionState().getPieces()[i] == PieceStatus.NOT_HAVE) {
+                .filter(peerConnectionManager -> {
+                    if (peerConnectionManager == null) {
                         return false;
                     }
-                }
 
-                return true;
-            })
-            .forEach(this::terminateConnection);
+                    for (int i = 0; i < peerConnectionManager.getConnectionState().getPieces().length; i++) {
+                        if (peerConnectionManager.getConnectionState().getPieces()[i] == PieceStatus.NOT_HAVE) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                })
+                .forEach(this::terminateConnection);
     }
 
     /**
@@ -449,22 +467,77 @@ public class LocalPeerManager {
     }
 
     private void terminateConnection(PeerConnectionManager peerConnectionManager) {
-        peerConnectionManager.terminate();
+        peerConnectionManager.SendControlMessage(new TerminateIntMes());
 
         this.connectedPeers.remove(peerConnectionManager);
 
-        if(this.connectedPeers.isEmpty()) {
+        if (this.connectedPeers.isEmpty()) {
             executor.close();
 
             this.logger.close();
 
             try {
                 Thread.sleep(5000);
-            } catch(InterruptedException exception) {
+            } catch (InterruptedException exception) {
                 exception.printStackTrace();
             }
 
             System.exit(0);
+        }
+    }
+    
+    public void SendControlMessage(InternalMessage message)
+    {
+        try {
+            this.incomingControlMessages.put(message);
+        }
+        catch (InterruptedException e)
+        {
+            System.err.println("An error occured while trying to send a control message to LocalPeerManager");
+            throw new RuntimeException(e);
+        }
+    }
+
+    private boolean AllTransfersCompleted()
+    {
+        return false;
+    }
+    public void run()
+    {
+        try {
+            while (!AllTransfersCompleted()) 
+            {
+                InternalMessage message = incomingControlMessages.take();
+                HandleControlMessage(message);
+            }
+        } catch (InterruptedException | UnsupportedOperationException e) {
+            System.err.println("An error occured in localPeerManager");
+            e.printStackTrace(System.err);
+            throw new RuntimeException(e);
+
+        } finally {
+            // terminate all peer connections
+        }
+    }
+
+    private void HandleControlMessage(InternalMessage message) throws UnsupportedOperationException
+    {
+        switch(message.getType())
+        {
+            case RECEIVED:
+                ReceivedIntMes recMessage = (ReceivedIntMes) message;
+                if(recMessage.GetPieceContent() == null)
+                {
+                    System.err.println(
+                            "LocalPeerManager recieved a recieved control message with no contents which isn't allowed");
+                    throw new UnsupportedOperationException("'Recieved' control message with no contents");
+                }
+                setLocalPiece(recMessage.GetPieceIndex(), PieceStatus.HAVE, recMessage.GetPieceContent());
+                break;
+            default:
+                System.err.println("LocalPeerManager recieved a control message of type " + message.getTypeString()
+                        + " which isn't allowed");
+                throw new UnsupportedOperationException("Control Message of invalid type " + message.getTypeString() +" in LocalPeerManager");
         }
     }
 }

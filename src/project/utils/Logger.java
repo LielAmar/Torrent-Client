@@ -43,7 +43,18 @@ public class Logger {
         try {
             this.writer.write("[" + timestamp + "] " + message + "\n");
         } catch (IOException exception) {
-            System.err.println("An error occurred when trying to log a message into the log file!");
+            if (exception.getMessage().equals("Stream closed")) 
+            {
+                System.err.println("Tried to write to the log file after it was closed");
+                System.err.println("Message that failed: " + "[" + timestamp + "] " + message + "\n");
+            }
+            else
+            {
+                System.err.println("An error occurred when trying to log a message into the log file!");
+                System.err.println("Message that failed: " + "[" + timestamp + "] " + message + "\n");
+
+            }
+            exception.printStackTrace(System.err);
         }
     }
 
@@ -52,6 +63,7 @@ public class Logger {
             this.writer.close();
         } catch (IOException exception) {
             System.err.println("An error occurred when trying to close the log file!");
+            exception.printStackTrace(System.out);
         }
     }
 }

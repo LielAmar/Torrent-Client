@@ -7,7 +7,7 @@
 @SET rundir=%abspath%RunDir
 
 @SET peerIDStart=1001
-@SET peerIDEnd=1003
+@SET peerIDEnd=1004
 ::@ECHO %builddir%
 ::@ECHO %rundir%
 
@@ -18,6 +18,7 @@ xcopy RunDirClean RunDir /E /I
 
 for /L %%i IN (%peerIDStart%, 1, %peerIDEnd%) DO (
     ping 192.0.2.2 -n 1 -w 1000 > nul
-    start "Peer %%i" java -Duser.dir="%rundir%" -cp "%builddir%" %mainfile% %%i
+    ::start "Peer %%i" java -Duser.dir="%rundir%" -cp "%builddir%" %mainfile% %%i
+    start "Peer %%i" Run.bat %%i
 )
 

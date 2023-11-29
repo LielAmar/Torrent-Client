@@ -3,8 +3,10 @@ package project.connection;
 import project.LocalPeerManager;
 import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
-import project.packet.Packet;
-import project.packet.packets.*;
+import project.message.InternalMessage.InternalMessage;
+import project.message.InternalMessage.InternalMessages.ReceivedIntMes;
+import project.message.packet.Packet;
+import project.message.packet.packets.*;
 import project.utils.Logger;
 import project.utils.Tag;
 
@@ -222,7 +224,8 @@ public class PeerConnectionHandler {
                 " has downloaded the piece " + packet.getPieceIndex() + " from " + this.state.getRemotePeerId() + "." +
                 " Now the number of pieces it has is " + this.localPeerManager.getLocalPiecesCount() + ".");
 
-        this.localPeerManager.setLocalPiece(packet.getPieceIndex(), PieceStatus.HAVE, packet.getPieceContent());
+        // this.localPeerManager.setLocalPiece(packet.getPieceIndex(), PieceStatus.HAVE, packet.getPieceContent());
+        this.localPeerManager.SendControlMessage(new ReceivedIntMes(packet.getPieceIndex(), packet.getPieceContent()));
         this.state.increaseDownloadSpeed();
 
         // If there's more pieces to request, request one.

@@ -4,19 +4,22 @@ import java.io.IOException;
 import java.net.Socket;
 
 import project.LocalPeerManager;
-import project.packet.Packet;
-import project.packet.PacketType;
-import project.packet.packets.*;
+import project.message.Message;
+import project.message.InternalMessage.InternalMessage;
+import project.message.packet.Packet;
+import project.message.packet.PacketType;
+import project.message.packet.packets.*;
 import project.utils.Logger;
 import project.utils.Tag;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 
 public class PeerConnectionManager extends PeerConnection {
 
-    private final BlockingQueue<Packet> incomingMessageQueue;
-    private final BlockingQueue<Packet> outgoingMessageQueue;
+    private final PriorityBlockingQueue<Message> incomingMessageQueue;
+    private final PriorityBlockingQueue<Packet> outgoingMessageQueue;
 
     private final PeerConnectionSender sender;
     private final PeerConnectionListener listener;
@@ -26,8 +29,8 @@ public class PeerConnectionManager extends PeerConnection {
     public PeerConnectionManager(Socket connection, LocalPeerManager localPeerManager, ConnectionState state) {
         super(connection, localPeerManager, state);
 
-        this.incomingMessageQueue = new LinkedBlockingQueue<>();
-        this.outgoingMessageQueue = new LinkedBlockingQueue<>();
+        this.incomingMessageQueue = new PriorityBlockingQueue<>();
+        this.outgoingMessageQueue = new PriorityBlockingQueue<>();
 
         this.sender = new PeerConnectionSender(connection, localPeerManager, state, this.outgoingMessageQueue);
         this.listener = new PeerConnectionListener(connection, localPeerManager, state, this.incomingMessageQueue);
@@ -52,7 +55,16 @@ public class PeerConnectionManager extends PeerConnection {
             this.outgoingMessageQueue.put(new HandshakePacket(super.localPeerManager.getLocalPeerId()));
 
             // Listen to the first received packet: handshake packet
-            Packet receivedPacket = this.incomingMessageQueue.take();
+            Message receivedMessage = this.incomingMessageQueue.take();
+
+            if (!receivedMessage.GetIsPacket()) {
+                System.err.println("Recieved A control message before the handshake");
+
+                this.terminate();
+                return;
+            }
+            
+            Packet receivedPacket = (Packet) receivedMessage;
 
             if(receivedPacket.getType() != PacketType.HANDSHAKE) {
                 System.err.println("An error occurred when establishing connection with remote peer: " +
@@ -90,9 +102,16 @@ public class PeerConnectionManager extends PeerConnection {
 
             // Handle incoming packets and prepare replies
             while(super.state.isConnectionActive()) {
-                Packet incomingPacket = this.incomingMessageQueue.take();
+                Message incomingMessage = this.incomingMessageQueue.take();
 
-                this.handler.handle(incomingPacket);
+                if(incomingMessage.GetIsPacket())
+                {
+                    this.handler.handle((Packet) incomingMessage);
+                }
+                else
+                {
+
+                }
             }
         } catch (InterruptedException exception) {
             // TODO: figure out what to do here
@@ -120,7 +139,7 @@ public class PeerConnectionManager extends PeerConnection {
      */
     public void terminate() {
         // Already terminated
-        if(!this.state.isConnectionActive()) {
+        if (!this.state.isConnectionActive()) {
             return;
         }
 
@@ -133,8 +152,13 @@ public class PeerConnectionManager extends PeerConnection {
             this.connection.close();
             this.incomingMessageQueue.add(new UnknownPacket());
             this.outgoingMessageQueue.add(new UnknownPacket());
-        } catch(IOException exception) {
+        } catch (IOException exception) {
             exception.printStackTrace();
         }
+    }
+    
+    public void SendControlMessage(InternalMessage message)
+    {
+        this.incomingMessageQueue.put(message);
     }
 }

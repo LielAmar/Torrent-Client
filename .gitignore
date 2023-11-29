@@ -31,3 +31,7 @@ bin/
 ### Build files ###
 Build/*
 Clean.bat
+
+
+### Run Dir ###
+RunDir/*

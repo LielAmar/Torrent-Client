@@ -2,7 +2,7 @@ package project.connection;
 
 import project.LocalPeerManager;
 import project.exceptions.NetworkException;
-import project.packet.Packet;
+import project.message.packet.Packet;
 import project.utils.Logger;
 import project.utils.Tag;
 

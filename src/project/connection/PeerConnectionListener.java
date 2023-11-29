@@ -1,8 +1,9 @@
 package project.connection;
 
 import project.LocalPeerManager;
-import project.packet.Packet;
-import project.packet.packets.*;
+import project.message.Message;
+import project.message.packet.Packet;
+import project.message.packet.packets.*;
 import project.utils.Logger;
 import project.utils.Tag;
 
@@ -14,12 +15,12 @@ import java.util.concurrent.BlockingQueue;
 
 public class PeerConnectionListener extends PeerConnection {
 
-    private final BlockingQueue<Packet> messageQueue;
+    private final BlockingQueue<Message> messageQueue;
 
     private DataInputStream in;
 
     public PeerConnectionListener(Socket connection, LocalPeerManager localPeerManager,
-                                  ConnectionState state, BlockingQueue<Packet> incomingMessageQueue) {
+                                  ConnectionState state, BlockingQueue<Message> incomingMessageQueue) {
         super(connection, localPeerManager, state);
 
         this.messageQueue = incomingMessageQueue;
