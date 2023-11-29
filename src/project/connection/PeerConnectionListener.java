@@ -15,15 +15,17 @@ import java.util.concurrent.BlockingQueue;
 
 public class PeerConnectionListener extends PeerConnection {
 
-    private final BlockingQueue<Message> messageQueue;
+    // private final BlockingQueue<Packet> messageQueue;
+    private final PeerConnectionManager manager;
 
     private DataInputStream in;
 
     public PeerConnectionListener(Socket connection, LocalPeerManager localPeerManager,
-                                  ConnectionState state, BlockingQueue<Message> incomingMessageQueue) {
+                                  ConnectionState state, PeerConnectionManager manager) {
         super(connection, localPeerManager, state);
 
-        this.messageQueue = incomingMessageQueue;
+        // this.messageQueue = incomingMessageQueue;
+        this.manager = manager;
     }
 
     public void run() {
@@ -32,7 +34,8 @@ public class PeerConnectionListener extends PeerConnection {
 
             // Listen to the first incoming message (handshake)
             byte[] message = this.readBytes(HandshakePacket.HANDSHAKE_LENGTH);
-            this.messageQueue.put(new HandshakePacket(message));
+            // this.messageQueue.put(new HandshakePacket(message));
+            this.manager.SendRecievedPacket(new HandshakePacket(message));
 
             // Wait for the handshake to be finished
             this.state.waitForHandshake();
@@ -40,9 +43,10 @@ public class PeerConnectionListener extends PeerConnection {
 
             // Start listening to incoming messages until the connection is closed
             while (this.state.isConnectionActive()) {
-                this.messageQueue.put(this.listenToMessage());
+                // this.messageQueue.put(this.listenToMessage());
+                this.manager.SendRecievedPacket(this.listenToMessage());
             }
-        } catch (IOException | InterruptedException exception) {
+        } catch (IOException exception) {
             System.err.println("An error occurred when listening to incoming packets with peer " +
                     this.state.getRemotePeerId());
         } finally {
@@ -96,16 +100,12 @@ public class PeerConnectionListener extends PeerConnection {
         try {
             if(length > 0) {
                 byte[] message = new byte[length];
-                this.in.readFully(message, 0, message.length);
+                this.in.read(message, 0, message.length);
                 return message;
             }
-        } catch(IOException exception) {
-//            System.out.println("[DEBUG] Tried to read and failed");
-            // try {
-            //     Thread.sleep(10000);
-            // } catch(InterruptedException exc) {
-            //     exc.printStackTrace();
-            // }
+        } catch (IOException exception) {
+            System.err.println("IO Exception In listener " +this.state.getRemotePeerId()+ " \n" +  exception);
+            // exception.printStackTrace(System.err);
         }
 
         return null;

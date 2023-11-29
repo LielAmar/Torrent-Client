@@ -4,8 +4,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.io.ObjectInputFilter.Config;
+import java.util.BitSet;
+
 
 import project.connection.piece.PieceStatus;
+import project.connection.piece.Piece;
+
 
 public class ConnectionState {
 
@@ -23,6 +28,9 @@ public class ConnectionState {
     private AtomicBoolean interested;
     private AtomicBoolean localInterestedIn;
     private AtomicInteger downloadSpeed;
+
+    private AtomicBoolean pieceRequested;
+    private AtomicInteger requestedPieceID;
 
     // A variable used to tell if the local peer connected to this, remote peer, or vice versa.
     private boolean localConnectedToRemote;
@@ -48,7 +56,10 @@ public class ConnectionState {
         this.connectionActive = new AtomicBoolean(true);
         this.sentBitfield = new AtomicBoolean(false);
 
-        this.handshakeLock = new ReentrantLock();
+        pieceRequested = new AtomicBoolean(false);
+        requestedPieceID = new AtomicInteger(-1);
+    
+       this.handshakeLock = new ReentrantLock();
 
         this.localConnectedToRemote = true;
     }
@@ -122,6 +133,25 @@ public class ConnectionState {
         this.pieces[ind] = PieceStatus.HAVE;
     }
 
+    public void setPieceRequested(boolean requested)
+    {
+        this.pieceRequested.set(requested);
+    }
+
+    public boolean getPieceRequested()
+    {
+        return this.pieceRequested.get();
+    }
+
+    public void setPieceRequestedID(int requestedID)
+    {
+        this.requestedPieceID.set(requestedID);
+    }
+
+    public int getPieceRequestedID()
+    {
+        return this.requestedPieceID.get();
+    }
 
     public boolean isConnectionActive() {
         return this.connectionActive.get();
@@ -160,4 +190,21 @@ public class ConnectionState {
     public void setLocalConnectedToRemote(boolean choice) {
         this.localConnectedToRemote = choice;
     }
+
+    public boolean isRemoteComplete()
+    {
+        // check to make sure we dont incorrectly say this peer is done when it just hasnt had its piece array initialized yet
+        if(pieces.length == 0)
+        {
+            return false;
+        }
+        for(PieceStatus status : pieces)
+        {
+            if (status != PieceStatus.HAVE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
 }

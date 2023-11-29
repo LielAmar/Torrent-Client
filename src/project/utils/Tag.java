@@ -1,12 +1,13 @@
 package project.utils;
 
 public enum Tag {
-
+    DEBUG("DEBUG", false),
+    EXITING("EXITING", true),
     CONFIGURATION("CONFIGURATION", true),
     CONNECTIONS("CONNECTIONS", true),
     CLIENT("CLIENT", true),
     SERVER("SERVER", true),
-    LOCAL_PEER_MANAGER("LOCAL_PEER_MANAGER", true),
+    LOCAL_PEER_MANAGER("LOCAL_PEER_MANAGER", false),
     EXECUTOR("EXECUTOR", true),
 
     PEER_CONNECTION_MANAGER("PEER_CONNECTION_MANAGER", true),

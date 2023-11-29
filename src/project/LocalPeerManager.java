@@ -5,9 +5,11 @@ import project.connection.PeerConnectionManager;
 import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
 import project.message.InternalMessage.InternalMessage;
+import project.message.InternalMessage.InternalMessages.ChokeThreadIntMes;
+import project.message.InternalMessage.InternalMessages.NewLocalPeiceIntMes;
 import project.message.InternalMessage.InternalMessages.ReceivedIntMes;
 import project.message.InternalMessage.InternalMessages.TerminateIntMes;
-import project.message.packet.Packet;
+import project.message.InternalMessage.InternalMessages.UnchokeThreadIntMes;
 import project.utils.Logger;
 import project.utils.Tag;
 
@@ -20,23 +22,26 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.LinkedTransferQueue;
-import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class LocalPeerManager extends Thread {
 
     private static final Random random = new Random();
     private static final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    private static final ScheduledExecutorService executor2 = Executors.newSingleThreadScheduledExecutor();
+
 
     private static final String DIRECTORY = "peer_%d";
 
@@ -48,9 +53,11 @@ public class LocalPeerManager extends Thread {
     private final ArrayList<PeerConnectionManager> connectedPeers;
 
     private final Piece[] localPieces;
-    
+
     private final BlockingQueue<InternalMessage> incomingControlMessages;
 
+    private boolean localFileCompleted;
+    private AtomicBoolean allPeersConnected;
 
     /*
      * I noticed some potential problems in how the bitmap packet is generated and sent,
@@ -74,6 +81,15 @@ public class LocalPeerManager extends Thread {
      * so that no other threads can mark and piece as had until this thread is done setting up its bitmap.
      *
      */
+    /*
+     * CHANGE TO the bitmap lock:
+     * Since i am swapping to a message passing system for interthread communication, im going to use this lock 
+     * in a more standard way. which the LocalPeerManager thread wants to update the local pieces array, it will aquire the writelock, 
+     * thus preventing any of the peerConnectionMangers from aquiring the readlock. It will also send a message to each of the peers informing them
+     * of changes to the local pieces before it releases the lock and allowing reads again.
+     * The only time the peerConnectionMangers should need to use the exposed interface to aquire the readlock is when 
+     * they are sending their bitfield packet. Other times, when just reading the bitmap it will be done automatically
+     */
     private final ReadWriteLock bitmapLock;
     private final Lock choosePieceLock;
 
@@ -88,6 +104,11 @@ public class LocalPeerManager extends Thread {
                 File.separator + "log_peer_" + this.localPeerId + ".log").toAbsolutePath().toString());
 
         this.localPieces = new Piece[this.config.getNumberOfPieces()];
+        localFileCompleted = false;
+        
+        //we connect to the peers after we create and start this thread
+        allPeersConnected = new AtomicBoolean(false);
+
 
         this.connectedPeers = new ArrayList<>();
 
@@ -99,10 +120,9 @@ public class LocalPeerManager extends Thread {
         // Start the scheduler for reevaluating unchoked peers & optimistic unchoked peer
         executor.scheduleAtFixedRate(this::reevaluateUnchokedPeers, this.config.getUnchokingInterval(),
                 this.config.getUnchokingInterval(), TimeUnit.SECONDS);
-        executor.scheduleAtFixedRate(this::reevaluateOptimisticPeer, this.config.getOptimisticUnchokingInterval(),
+        executor2.scheduleAtFixedRate(this::reevaluateOptimisticPeer, this.config.getOptimisticUnchokingInterval(),
                 this.config.getOptimisticUnchokingInterval(), TimeUnit.SECONDS);
     }
-
 
     public int getLocalPeerId() {
         return this.localPeerId;
@@ -116,7 +136,6 @@ public class LocalPeerManager extends Thread {
         return logger;
     }
 
-
     public Piece[] getLocalPieces() {
         return this.localPieces;
     }
@@ -124,8 +143,8 @@ public class LocalPeerManager extends Thread {
     public int getLocalPiecesCount() {
         int count = 0;
 
-        for(int i = 0; i < this.localPieces.length; i++) {
-            if(this.localPieces[i] != null && this.localPieces[i].getStatus() == PieceStatus.HAVE) {
+        for (int i = 0; i < this.localPieces.length; i++) {
+            if (this.localPieces[i] != null && this.localPieces[i].getStatus() == PieceStatus.HAVE) {
                 count++;
             }
         }
@@ -136,10 +155,10 @@ public class LocalPeerManager extends Thread {
     private void setLocalPiece(int pieceId, PieceStatus status, byte[] content) {
         Logger.print(Tag.LOCAL_PEER_MANAGER, "Updating piece " + pieceId + " status to " + status.name());
 
-        this.bitmapLock.readLock().lock();
+        this.bitmapLock.writeLock().lock();
 
         // If the local piece with the given id does not exist, create it. Otherwise, update the existing piece
-        if(this.localPieces[pieceId] == null) {
+        if (this.localPieces[pieceId] == null) {
             this.localPieces[pieceId] = new Piece(status, content);
         } else {
             this.localPieces[pieceId].setStatus(status);
@@ -147,38 +166,45 @@ public class LocalPeerManager extends Thread {
         }
 
         // If the piece status is set to HAVE and announce is true, send an announcement to all connections
-        if(status == PieceStatus.HAVE) {
-            announce(pieceId);
+        if (status == PieceStatus.HAVE) {
+            announce(new NewLocalPeiceIntMes(pieceId));
         }
 
-        // If all pieces were transferred, dump all pieces into the file
-        if(this.completedTransfer()) {
-            Logger.print(Tag.LOCAL_PEER_MANAGER, "Dumped file with piece: " + pieceId);
+        // // If all pieces were transferred, dump all pieces into the file
+        // if (this.completedTransfer()) {
+        //     Logger.print(Tag.LOCAL_PEER_MANAGER, "Dumped file with piece: " + pieceId);
 
-            this.dumpFile();
-        }
+        //     this.dumpFile();
+        // }
 
-        this.bitmapLock.readLock().unlock();
+        this.bitmapLock.writeLock().unlock();
     }
 
-    private void announce(int pieceIndex) {
+    // private void announce(int pieceIndex) {
+    //     // Create a copy to avoid modifying a list we're looping over
+    //     List<PeerConnectionManager> connectedPeersCopy = new ArrayList<>(this.connectedPeers);
+
+    //     for (PeerConnectionManager peerConnection : connectedPeersCopy) {
+    //         peerConnection.getHandler().sendHave(pieceIndex);
+    //     }
+    // }
+
+    private void announce(InternalMessage message) {
         // Create a copy to avoid modifying a list we're looping over
         List<PeerConnectionManager> connectedPeersCopy = new ArrayList<>(this.connectedPeers);
 
         for (PeerConnectionManager peerConnection : connectedPeersCopy) {
-            peerConnection.getHandler().sendHave(pieceIndex);
+            peerConnection.SendControlMessage(message);;
         }
     }
+    
+    // public void acquireBitmapLock() {
+    //     this.bitmapLock.readLock().lock();
+    // }
 
-
-    public void acquireBitmapLock() {
-        this.bitmapLock.writeLock().lock();
-    }
-
-    public void releaseBitmapLock() {
-        this.bitmapLock.writeLock().unlock();
-    }
-
+    // public void releaseBitmapLock() {
+    //     this.bitmapLock.readLock().unlock();
+    // }
 
     public PeerConnectionManager connectToPeer(Socket socket) {
         PeerConnectionManager manager = this.connectToPeer(-1, socket);
@@ -209,7 +235,6 @@ public class LocalPeerManager extends Thread {
         return connectionManager;
     }
 
-
     /**
      * Sets up the initial pieces of the targeted file based on whether the local peer has it or not
      *
@@ -218,7 +243,7 @@ public class LocalPeerManager extends Thread {
     public void setupInitialPieces(boolean hasFile) throws IOException {
         // If the local peer doesn't have the file, set all local pieces to NOT_HAVE with null content
         if (!hasFile) {
-            for(int i = 0; i < this.config.getNumberOfPieces(); i++) {
+            for (int i = 0; i < this.config.getNumberOfPieces(); i++) {
                 this.localPieces[i] = new Piece(PieceStatus.NOT_HAVE, null);
             }
 
@@ -228,9 +253,10 @@ public class LocalPeerManager extends Thread {
         // Otherwise, read the target file and set all local pieces to HAVE with the matching content
         byte[] localFileBytes = this.getLocalFileBytes();
 
-        for(int i = 0; i < this.config.getNumberOfPieces(); i++) {
+        for (int i = 0; i < this.config.getNumberOfPieces(); i++) {
             // The piece size is either the specified piece size, or smaller if it's an incomplete piece
-            int pieceSize = Math.min(this.config.getPieceSize(), this.config.getFileSize() - i * this.config.getPieceSize());
+            int pieceSize = Math.min(this.config.getPieceSize(),
+                    this.config.getFileSize() - i * this.config.getPieceSize());
             byte[] pieceContent = new byte[pieceSize];
 
             System.arraycopy(localFileBytes, i * this.config.getPieceSize(), pieceContent, 0, pieceSize);
@@ -250,7 +276,7 @@ public class LocalPeerManager extends Thread {
 
         byte[] data = new byte[(int) file.length()];
 
-        try(FileInputStream fis = new FileInputStream(file)) {
+        try (FileInputStream fis = new FileInputStream(file)) {
             int bytesRead = fis.read(data);
         } catch (IOException exception) {
             throw new IOException(exception);
@@ -259,7 +285,6 @@ public class LocalPeerManager extends Thread {
         return data;
     }
 
-
     /**
      * Returns the index of a random piece the remote peer has and the local piece doesn't
      *
@@ -267,8 +292,6 @@ public class LocalPeerManager extends Thread {
      * @return               Chosen piece index, -1 if no such piece
      */
     public int choosePieceToRequest(PieceStatus[] remotePieces) {
-        // TODO: change this lock to write lock/different lock because 2 connections might choose the same piece
-        // this.bitmapLock.readLock().lock();
         this.choosePieceLock.lock();
 
         ArrayList<Integer> desired = new ArrayList<>();
@@ -286,12 +309,19 @@ public class LocalPeerManager extends Thread {
             this.localPieces[randomIndex].setStatus(PieceStatus.REQUESTED);
         }
 
-        // this.bitmapLock.readLock().unlock();
         this.choosePieceLock.unlock();
 
         return randomIndex;
     }
 
+    public void cancelPieceRequest(int pieceIndex) {
+        this.choosePieceLock.lock();
+        Piece p = this.localPieces[pieceIndex];
+        if (p.getStatus() != PieceStatus.REQUESTED) {
+            throw new RuntimeException("Tried to cancel peiece request for a peice that isn't requested");
+        }
+        this.choosePieceLock.unlock();
+    }
 
     /**
      * Re-evaluates the unchoked remote peers based on the download speed with each peer.
@@ -300,19 +330,59 @@ public class LocalPeerManager extends Thread {
     private void reevaluateUnchokedPeers() {
         // Go over all connected peers, sort them based on the download speed, filter based on interest and
         // keep the Configuration#getNumberOfPreferredNeighbors first peers. These are the peers to be unchoke.
-        List<PeerConnectionManager> unchoked = this.connectedPeers.stream()
-                .sorted((pA, pB) -> {
-                    if(pA.getConnectionState().getDownloadSpeed() < pB.getConnectionState().getDownloadSpeed()) {
-                        return 1;
-                    } else if(pA.getConnectionState().getDownloadSpeed() > pB.getConnectionState().getDownloadSpeed()) {
-                        return -1;
-                    } else {
-                        return random.nextInt(2) == 0 ? 1 : -1;
+        List<PeerConnectionManager> unchokedTemp;
+        List<PeerConnectionManager> unchoked;
+
+
+        if(!completedTransfer())
+        {
+            unchokedTemp = this.connectedPeers.stream()
+                    .sorted((pA, pB) -> {
+                        // if(pA.getConnectionState().getDownloadSpeed() < pB.getConnectionState().getDownloadSpeed()) {
+                        //     return 1;
+                        // } else if(pA.getConnectionState().getDownloadSpeed() > pB.getConnectionState().getDownloadSpeed()) {
+                        //     return -1;
+                        // } else {
+                        //     return random.nextInt(2) == 0 ? 1 : -1;
+                        // }
+                        return pA.getConnectionState().getDownloadSpeed() - pB.getConnectionState().getDownloadSpeed();
+                    }).filter(peer -> peer.getConnectionState().isInterested()).toList();
+            // check for ties, and randomize if necessary
+            if(unchokedTemp.size() > this.config.getNumberOfPreferredNeighbors())
+            {
+                // if the peer just before and just after the cutoff both have the same download speed, then there is a tie that needs to be resolved
+                if(unchokedTemp.get(this.config.getNumberOfPreferredNeighbors() - 1).getConnectionState().getDownloadSpeed() == unchokedTemp.get(this.config.getNumberOfPreferredNeighbors()).getConnectionState().getDownloadSpeed())
+                {
+                    int tiedSpeed = unchokedTemp.get(this.config.getNumberOfPreferredNeighbors() - 1).getConnectionState()
+                            .getDownloadSpeed();
+                    int peersAboveTied = (int)(unchokedTemp.stream().filter(peer -> { return peer.getConnectionState().getDownloadSpeed() > tiedSpeed; }).count());
+                    int slotsForTiedPeers = this.config.getNumberOfPreferredNeighbors() - peersAboveTied;
+                    int tiedPeers = (int) (unchokedTemp.stream().filter(peer -> {return peer.getConnectionState().getDownloadSpeed() == tiedSpeed;}).count());
+
+                    List<Integer> l = IntStream.range(0, tiedPeers).boxed().collect(Collectors.toList());
+                    Collections.shuffle(l);
+                    l = l.stream().limit(slotsForTiedPeers).toList();
+                    List<PeerConnectionManager> unchokedRandomized = new ArrayList<>();
+                    for(int i = 0; i< peersAboveTied; i++)
+                    {
+                        unchokedRandomized.add(unchokedTemp.get(i));
                     }
-                })
-                .filter(peer -> peer.getConnectionState().isInterested())
-                .limit(this.config.getNumberOfPreferredNeighbors())
-                .toList();
+                    for(int i = 0; i < slotsForTiedPeers; i++)
+                    {
+                        unchokedRandomized.add(unchokedTemp.get(peersAboveTied + i));
+                    }
+                    unchokedTemp = unchokedRandomized;
+                }
+            }
+        }
+        else {
+            unchokedTemp = new ArrayList<>(this.connectedPeers);
+            Collections.shuffle(unchokedTemp);
+        }
+
+        unchoked = unchokedTemp;
+
+        
 
         // The rest of the connected peers (except for the optimistically unchoke peer) are to be choked.
         List<PeerConnectionManager> choked = this.connectedPeers.stream()
@@ -324,10 +394,11 @@ public class LocalPeerManager extends Thread {
                         .collect(Collectors.joining(",")));
 
         unchoked.forEach(peer -> {
-            if(peer.getConnectionState().isLocalChoked()) {
-                peer.getConnectionState().setLocalChoked(false);
-                peer.getHandler().sendUnchoke();
-            }
+            // if(peer.getConnectionState().isLocalChoked()) {
+            //     peer.getConnectionState().setLocalChoked(false);
+            //     peer.getHandler().sendUnchoke();
+            // }
+            peer.SendControlMessage(new UnchokeThreadIntMes());
         });
 
         Logger.print(Tag.EXECUTOR, "Re-evaluated choked remote peers. Choking peers: " +
@@ -335,41 +406,90 @@ public class LocalPeerManager extends Thread {
                         .collect(Collectors.joining(",")));
 
         choked.forEach(peer -> {
-            if(!peer.getConnectionState().isLocalChoked()) {
-                peer.getConnectionState().setLocalChoked(true);
-                peer.getHandler().sendChoke();
-            }
+            // if(!peer.getConnectionState().isLocalChoked()) {
+            //     peer.getConnectionState().setLocalChoked(true);
+            //     peer.getHandler().sendChoke();
+            // }
+            peer.SendControlMessage(new ChokeThreadIntMes());
         });
 
         this.connectedPeers.forEach(peer -> peer.getConnectionState().resetDownloadSpeed());
 
         this.logger.log("Peer " + this.localPeerId + " has the preferred neighbors " +
                 unchoked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
-                                .collect(Collectors.joining(",")) + ".");
+                        .collect(Collectors.joining(","))
+                + ".");
     }
 
     /**
      * Re-evaluates the optimistically unchoked remote peer randomly.
      */
     private void reevaluateOptimisticPeer() {
+        // Logger.print(Tag.EXECUTOR, "Starting to reevaluate optimistically unchoked remote peer");
+        // String missing = "Missing pieces: ";
+        // for(int i = 0; i< config.getNumberOfPieces();i++)
+        // {
+        //     if (this.localPieces[i].getStatus() != PieceStatus.HAVE) {
+        //         missing = missing + i + " ";
+        //     }
+        // }
+        // Logger.print(Tag.EXECUTOR, missing);
+        // missing = "Requested pieces: ";
+        // for(int i = 0; i< config.getNumberOfPieces();i++)
+        // {
+        //     if (this.localPieces[i].getStatus() == PieceStatus.REQUESTED) {
+        //         missing = missing + i + " ";
+        //     }
+        // }
+        // Logger.print(Tag.EXECUTOR, missing);
+        // String missingPeer;
+        // for(PeerConnectionManager peer: this.connectedPeers)
+        // {
+        //     missingPeer = "Missing pieces for peer " + peer.getConnectionState().getRemotePeerId() + ": ";
+        //     for (int i = 0; i < config.getNumberOfPieces(); i++) {
+        //         if (peer.getConnectionState().getPieces()[i] != PieceStatus.HAVE) {
+        //             missingPeer = missingPeer + i + " ";
+        //         }
+        //     }
+        //     Logger.print(Tag.EXECUTOR, missingPeer);
+        // }
+        // for(PeerConnectionManager peer: this.connectedPeers)
+        // {
+        //     try
+        //     {Logger.print(Tag.EXECUTOR, peer.dumpState());
+        //     }
+        //     catch(Exception e)
+        //     {
+        //         System.err.println(e);
+        //         e.printStackTrace(System.err);
+        //     }
+        // }
+
         List<PeerConnectionManager> choked = this.connectedPeers.stream()
                 .filter(peer -> !peer.getConnectionState().isLocalChoked() && peer.getConnectionState().isInterested())
                 .toList();
-
+        if (choked.size() == 0)
+        {
+            Logger.print(Tag.EXECUTOR,
+                    "All interested peers are already unchoked, there is no optimistically unchoked peer");
+            return;
+        }
         this.optimisticallyUnchokedPeer = choked.get(random.nextInt(choked.size()));
 
         Logger.print(Tag.EXECUTOR, "Re-evaluated optimistically unchoked remote peer. Unchoking peer " +
                 this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId());
 
-        if(this.optimisticallyUnchokedPeer.getConnectionState().isLocalChoked()) {
-            this.optimisticallyUnchokedPeer.getConnectionState().setLocalChoked(false);
-            this.optimisticallyUnchokedPeer.getHandler().sendUnchoke();
-        }
+        // if(this.optimisticallyUnchokedPeer.getConnectionState().isLocalChoked()) {
+        //     this.optimisticallyUnchokedPeer.getConnectionState().setLocalChoked(false);
+        //     this.optimisticallyUnchokedPeer.getHandler().sendUnchoke();
+        // }
+        this.optimisticallyUnchokedPeer.SendControlMessage(new UnchokeThreadIntMes());
 
         this.logger.log("Peer " + this.localPeerId + " has the optimistically unchoked neighbor " +
                 this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() + ".");
-    }
 
+        
+    }
 
     /**
      * Checks if all pieces were transferred successfully
@@ -377,12 +497,16 @@ public class LocalPeerManager extends Thread {
      * @return   Whether the local peer has all file pieces
      */
     private boolean completedTransfer() {
-        for(Piece piece : this.localPieces) {
-            if(piece == null || piece.getStatus() != PieceStatus.HAVE) {
+        if (localFileCompleted)
+        {
+            return true;
+        }
+        for (Piece piece : this.localPieces) {
+            if (piece == null || piece.getStatus() != PieceStatus.HAVE) {
                 return false;
             }
         }
-
+        localFileCompleted = true;
         return true;
     }
 
@@ -413,8 +537,7 @@ public class LocalPeerManager extends Thread {
         }
     }
 
-
-    public void attemptTerminate() {
+    private void attemptTerminate() {
         // for(int i = 0; i < this.getLocalPieces().length; i++) {
         //     if(this.getLocalPieces()[i].getStatus() == PieceStatus.NOT_HAVE) {
         //         return;
@@ -450,15 +573,15 @@ public class LocalPeerManager extends Thread {
      *
      * @param peerConnectionManager   Remote peer
      */
-    public void attemptTerminate(PeerConnectionManager peerConnectionManager) {
-        for(int i = 0; i < peerConnectionManager.getConnectionState().getPieces().length; i++) {
-            if(peerConnectionManager.getConnectionState().getPieces()[i] == PieceStatus.NOT_HAVE) {
+    private void attemptTerminate(PeerConnectionManager peerConnectionManager) {
+        for (int i = 0; i < peerConnectionManager.getConnectionState().getPieces().length; i++) {
+            if (peerConnectionManager.getConnectionState().getPieces()[i] == PieceStatus.NOT_HAVE) {
                 return;
             }
         }
 
-        for(int i = 0; i < this.getLocalPieces().length; i++) {
-            if(this.getLocalPieces()[i].getStatus() == PieceStatus.NOT_HAVE) {
+        for (int i = 0; i < this.getLocalPieces().length; i++) {
+            if (this.getLocalPieces()[i].getStatus() == PieceStatus.NOT_HAVE) {
                 return;
             }
         }
@@ -485,29 +608,55 @@ public class LocalPeerManager extends Thread {
             System.exit(0);
         }
     }
-    
-    public void SendControlMessage(InternalMessage message)
-    {
+
+    public void SendControlMessage(InternalMessage message) {
         try {
             this.incomingControlMessages.put(message);
-        }
-        catch (InterruptedException e)
-        {
+        } catch (InterruptedException e) {
             System.err.println("An error occured while trying to send a control message to LocalPeerManager");
             throw new RuntimeException(e);
         }
     }
 
-    private boolean AllTransfersCompleted()
+    public void SetAllPeersConnected()
     {
-        return false;
+        allPeersConnected.set(true);
     }
-    public void run()
-    {
+    private boolean AllTransfersCompleted() {
+        if(!completedTransfer())
+        {
+            return false;
+        }
+        if (!allPeersConnected.get())
+        {
+            return false;
+        }
+        // String s = "Local file is completed, peer(s) ";
+        boolean allPeersDone = true;
+        for(PeerConnectionManager peer : this.connectedPeers)
+        {
+            if (!peer.getConnectionState().isRemoteComplete()) {
+                return false;
+                // allPeersDone = false;
+                // s = s + peer.getConnectionState().getRemotePeerId() + " ";
+            }
+        }
+        // s = s + "have not completed";
+        // if (!allPeersDone)
+        // {
+        //     Logger.print(Tag.EXITING, s);
+        // }
+        return allPeersDone;
+    }
+
+    public void run() {
         try {
-            while (!AllTransfersCompleted()) 
-            {
-                InternalMessage message = incomingControlMessages.take();
+            while (!AllTransfersCompleted()) {
+                InternalMessage message = incomingControlMessages.poll(5, TimeUnit.SECONDS);
+                if (message == null)
+                {
+                    continue;
+                }
                 HandleControlMessage(message);
             }
         } catch (InterruptedException | UnsupportedOperationException e) {
@@ -517,17 +666,20 @@ public class LocalPeerManager extends Thread {
 
         } finally {
             // terminate all peer connections
+            Logger.print(Tag.EXITING, "Finished all transfers, exiting");
+            announce(new TerminateIntMes());
+            dumpFile();
+            executor.shutdown();
+            executor2.shutdown();
         }
     }
 
-    private void HandleControlMessage(InternalMessage message) throws UnsupportedOperationException
-    {
-        switch(message.getType())
-        {
+    private void HandleControlMessage(InternalMessage message) throws UnsupportedOperationException {
+        Logger.print(Tag.LOCAL_PEER_MANAGER, "Local Peer Manager is processing control message of type " + message.getTypeString());
+        switch (message.getType()) {
             case RECEIVED:
                 ReceivedIntMes recMessage = (ReceivedIntMes) message;
-                if(recMessage.GetPieceContent() == null)
-                {
+                if (recMessage.GetPieceContent() == null) {
                     System.err.println(
                             "LocalPeerManager recieved a recieved control message with no contents which isn't allowed");
                     throw new UnsupportedOperationException("'Recieved' control message with no contents");
@@ -537,7 +689,8 @@ public class LocalPeerManager extends Thread {
             default:
                 System.err.println("LocalPeerManager recieved a control message of type " + message.getTypeString()
                         + " which isn't allowed");
-                throw new UnsupportedOperationException("Control Message of invalid type " + message.getTypeString() +" in LocalPeerManager");
+                throw new UnsupportedOperationException(
+                        "Control Message of invalid type " + message.getTypeString() + " in LocalPeerManager");
         }
     }
 }

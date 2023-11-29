@@ -3,7 +3,6 @@ package project.connection;
 import project.LocalPeerManager;
 import project.connection.piece.Piece;
 import project.connection.piece.PieceStatus;
-import project.message.InternalMessage.InternalMessage;
 import project.message.InternalMessage.InternalMessages.ReceivedIntMes;
 import project.message.packet.Packet;
 import project.message.packet.packets.*;
@@ -66,6 +65,12 @@ public class PeerConnectionHandler {
                 " is choked by " + this.state.getRemotePeerId() + ".");
                 
         this.state.setRemoteChoke(true);
+
+        if(this.state.getPieceRequested())
+        {
+            this.localPeerManager.cancelPieceRequest(this.state.getPieceRequestedID());
+        }
+        this.state.setPieceRequested(false);
     }
 
     /**
@@ -83,11 +88,15 @@ public class PeerConnectionHandler {
 
         this.state.setRemoteChoke(false);
 
-        int pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
-
-        if(pieceIndex != -1 && !this.state.isRemoteChoked()) {
-            this.sendRequest(pieceIndex);
-            return;
+        // handle the edge case where at the start, we sent a request before we were ever unchoked
+        // and then we recieve an unchoke without ever recieveing a choke that would cancel the original request
+        if (this.state.getPieceRequested())
+        {
+            sendRequest(this.state.getPieceRequestedID());
+        }
+        else
+        {
+            this.SetInterestAndRequest();
         }
     }
 
@@ -137,13 +146,14 @@ public class PeerConnectionHandler {
 
         this.state.setPieces(pieces);
 
-        if(this.hasInterest()) {
-            this.sendInterested();
-            this.state.setLocalInterestedIn(true);
-        } else {
-            this.sendNotInterested();
-            this.state.setLocalInterestedIn(false);
-        }
+        // if(this.hasInterest()) {
+        //     this.sendInterested();
+        //     this.state.setLocalInterestedIn(true);
+        // } else {
+        //     this.sendNotInterested();
+        //     this.state.setLocalInterestedIn(false);
+        // }
+        this.SetInterestAndRequest();
     }
 
     /**
@@ -158,36 +168,39 @@ public class PeerConnectionHandler {
      */
     private void handleHave(HavePacket packet) {
         this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
-                " received the ‘have’ message from " + this.state.getRemotePeerId() + " for the piece " + packet.getPieceIndex() + ".");
+                " received the ‘have’ message from " + this.state.getRemotePeerId() + " for the piece "
+                + packet.getPieceIndex() + ".");
 
         int pieceIndex = packet.getPieceIndex();
 
         this.state.updatePiece(pieceIndex);
 
-        if(this.hasInterest()) {
-            this.sendInterested();
+        //         if(this.hasInterest()) {
+        //             this.sendInterested();
 
-            if(!this.state.isLocalInterestedIn()) {
-                // TODO: sometimes, peer B doesn't send peer C any pieces. Try to fix it.
-//                if(!this.state.isRemoteChoked()) {
-//                    // If there's more pieces to request, request one.
-//                    pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
-//
-//                    if(pieceIndex != -1 && !this.state.isRemoteChoked()) {
-//                        this.sendRequest(pieceIndex);
-//                    }
-//                }
+        //             if(!this.state.isLocalInterestedIn()) {
+        //                 // TODO: sometimes, peer B doesn't send peer C any pieces. Try to fix it.
+        // //                if(!this.state.isRemoteChoked()) {
+        // //                    // If there's more pieces to request, request one.
+        // //                    pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
+        // //
+        // //                    if(pieceIndex != -1 && !this.state.isRemoteChoked()) {
+        // //                        this.sendRequest(pieceIndex);
+        // //                    }
+        // //                }
 
-                this.state.setLocalInterestedIn(true);
-            }
-        } else {
-            this.sendNotInterested();
+        //                 this.state.setLocalInterestedIn(true);
+        //             }
+        //         } else {
+        //             this.sendNotInterested();
 
-            this.state.setLocalInterestedIn(false);
-        }
+        //             this.state.setLocalInterestedIn(false);
+        //         }
+
+        this.SetInterestAndRequest();
 
         // Check if the connection needs to be terminated (both local & remote peers have all pieces)
-        this.localPeerManager.attemptTerminate(this.peerConnectionManager);
+        // this.localPeerManager.attemptTerminate(this.peerConnectionManager);
     }
 
     /**
@@ -228,16 +241,12 @@ public class PeerConnectionHandler {
         this.localPeerManager.SendControlMessage(new ReceivedIntMes(packet.getPieceIndex(), packet.getPieceContent()));
         this.state.increaseDownloadSpeed();
 
-        // If there's more pieces to request, request one.
-        int pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
-
-        if(pieceIndex != -1 && !this.state.isRemoteChoked()) {
-            this.sendRequest(pieceIndex);
-            return;
-        }
+        // we no longer have a requested piece, as we have recieved the previous one and havent requested another yet
+        this.state.setPieceRequested(false);
+        this.SetInterestAndRequest();
 
         // Check if the connection needs to be terminated (both local & remote peers have all pieces)
-        this.localPeerManager.attemptTerminate();
+        // this.localPeerManager.attemptTerminate();
     }
 
 
@@ -386,16 +395,69 @@ public class PeerConnectionHandler {
      *
      * @return   Whether the remote peer has any pieces the local peer wants
      */
-    private boolean hasInterest() {
+    public boolean hasInterest() {
         Piece[] local = this.localPeerManager.getLocalPieces();
         PieceStatus[] remote = this.state.getPieces();
 
-        for(int pieceId = 0; pieceId < Math.min(local.length, remote.length); pieceId++) {
-            if(local[pieceId].getStatus() == PieceStatus.NOT_HAVE && remote[pieceId] == PieceStatus.HAVE) {
+        for (int pieceId = 0; pieceId < Math.min(local.length, remote.length); pieceId++) {
+            if (local[pieceId].getStatus() != PieceStatus.HAVE && remote[pieceId] == PieceStatus.HAVE) {
                 return true;
             }
         }
 
         return false;
+    }
+    
+    public void SetInterestAndRequest()
+    {
+        // System.out.println("PeerConnectionHandler " + this.state.getRemotePeerId() + " updating interest and requests");
+        Logger.print(Tag.HANDLER, "PeerConnectionHandler " + this.state.getRemotePeerId() + " updating interest and requests");
+
+        // // If there's more pieces to request, request one.
+        // int pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
+
+        // if(pieceIndex != -1 && !this.state.isRemoteChoked()) {
+        //     this.sendRequest(pieceIndex);
+        //     return;
+        // }
+
+        boolean shouldBeInterested = hasInterest();
+        if (!shouldBeInterested && this.state.isLocalInterestedIn())
+        {
+            Logger.print(Tag.DEBUG,  "PeerConnectionHandler " + this.state.getRemotePeerId() + "changing interest from interested to not");
+        }
+        if(shouldBeInterested != this.state.isLocalInterestedIn())
+        {
+            // System.out.println("PeerConnectionHandler " + this.state.getRemotePeerId() + " had the incorect interest state, changing from " + (shouldBeInterested ? "Uninterested" : "Interested") + " to " + (shouldBeInterested ? "Interested" : "Uninterested"));
+            Logger.print(Tag.DEBUG, "PeerConnectionHandler " + this.state.getRemotePeerId() + " had the incorect interest state, changing from " + (shouldBeInterested ? "Uninterested" : "Interested") + " to " + (shouldBeInterested ? "Interested" : "Uninterested"));
+
+            // if we aren't already in the correct state for some reason
+            // (they recieved a new piece or we recieved a piece and we no longer need anything from them)
+            // send the appropriate packet and update our state
+            if (shouldBeInterested) {
+                sendInterested();
+            } else {
+                sendNotInterested();
+            }
+            this.state.setLocalInterestedIn(shouldBeInterested);
+        }
+        
+        if(this.state.isLocalInterestedIn() && !this.state.isRemoteChoked())
+        {
+            if(!this.state.getPieceRequested())
+            {
+                int pieceID = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
+                // System.out.println("PeerConnectionHandler " + this.state.getRemotePeerId() + " didn't have a piece requested, now requesting " + pieceID);
+                Logger.print(Tag.DEBUG, "PeerConnectionHandler " + this.state.getRemotePeerId() + " didn't have a piece requested, now requesting " + pieceID);
+
+                if (pieceID >= 0)
+                {
+                    sendRequest(pieceID);
+                    this.state.setPieceRequested(true);
+                    this.state.setPieceRequestedID(pieceID);
+                }
+                
+            }
+        }
     }
 }

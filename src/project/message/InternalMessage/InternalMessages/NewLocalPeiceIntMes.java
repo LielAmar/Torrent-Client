@@ -3,24 +3,17 @@ package project.message.InternalMessage.InternalMessages;
 import project.message.InternalMessage.InternalMessage;
 import project.message.InternalMessage.InternalMessageType;
 
-public class ReceivedIntMes extends InternalMessage {
+public class NewLocalPeiceIntMes extends InternalMessage {
     private int pieceIndex;
-    private byte[] pieceContent;
     
-    public ReceivedIntMes(int pieceIndex, byte[] pieceContent)
+    public NewLocalPeiceIntMes(int pieceIndex)
     {
-        super(InternalMessageType.RECEIVED);
-        this.pieceContent = pieceContent;
+        super(InternalMessageType.NEW_LOCAL_PIECE);
         this.pieceIndex = pieceIndex;
     }
 
     public int GetPieceIndex()
     {
         return pieceIndex;
-    }
-
-    public byte[] GetPieceContent()
-    {
-        return pieceContent;
     }
 }

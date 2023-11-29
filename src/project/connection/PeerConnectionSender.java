@@ -47,6 +47,8 @@ public class PeerConnectionSender extends PeerConnection {
         } catch (IOException | InterruptedException exception) {
             System.err.println("An error occurred when sending outgoing packets with peer " +
                     this.state.getRemotePeerId());
+            System.err.println(exception);
+            exception.printStackTrace();
         } finally {
             try {
                 Logger.print(Tag.SENDER, "Closing output stream with peer " + this.state.getRemotePeerId());
@@ -75,7 +77,7 @@ public class PeerConnectionSender extends PeerConnection {
             System.err.println("An error occurred when building a message of type " + message.getTypeString() +
                     " to send to peer " + this.state.getRemotePeerId());
         } catch(IOException exception) {
-            System.err.println("An error occurred whens ending a message of type " + message.getTypeString() +
+            System.err.println("An error occurred whens sending a message of type " + message.getTypeString() +
                     " to peer " + this.state.getRemotePeerId());
         }
     }

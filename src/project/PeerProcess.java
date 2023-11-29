@@ -34,7 +34,7 @@ public class PeerProcess {
         // Set up the local peer manager
         int localPeerId = Integer.parseInt(args[0]);
         LocalPeerManager localPeerManager = new LocalPeerManager(localPeerId, config);
-
+        localPeerManager.start();
         // Set up all peer connections
         setupPeerConnections(PEER_INFO_CONFIG_FILE, localPeerManager);
     }
@@ -160,6 +160,7 @@ public class PeerProcess {
 
         // Listen to connections from all expected peers
         PeerProcess.listenToIncomingConnections(localPeerManager, localPeer.get().port, expectedConnections.get());
+        localPeerManager.SetAllPeersConnected();
     }
 
 
