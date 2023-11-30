@@ -100,6 +100,7 @@ public class LocalPeerManager extends Thread {
                 this.config.getUnchokingInterval(), TimeUnit.SECONDS);
         executor.scheduleAtFixedRate(this::reevaluateOptimisticPeer, this.config.getOptimisticUnchokingInterval(),
                 this.config.getOptimisticUnchokingInterval(), TimeUnit.SECONDS);
+        executor.scheduleAtFixedRate(this::dumpState, 15, 10, TimeUnit.SECONDS);
     }
 
     public int getLocalPeerId() {
@@ -311,9 +312,7 @@ public class LocalPeerManager extends Thread {
         List<PeerConnectionManager> unchokedTemp;
         List<PeerConnectionManager> unchoked;
 
-
-        if(!completedTransfer())
-        {
+        if (!completedTransfer()) {
             unchokedTemp = this.connectedPeers.stream()
                     .sorted((pA, pB) -> {
                         // if(pA.getConnectionState().getDownloadSpeed() < pB.getConnectionState().getDownloadSpeed()) {
@@ -326,8 +325,7 @@ public class LocalPeerManager extends Thread {
                         return pA.getConnectionState().getDownloadSpeed() - pB.getConnectionState().getDownloadSpeed();
                     }).filter(peer -> peer.getConnectionState().isInterested()).collect(Collectors.toList());
             // check for ties, and randomize if necessary
-            if(unchokedTemp.size() > this.config.getNumberOfPreferredNeighbors())
-            {
+            if (unchokedTemp.size() > this.config.getNumberOfPreferredNeighbors()) {
                 // if the peer just before and just after the cutoff both have the same download speed, then there is a tie that needs to be resolved
                 if (unchokedTemp.get(this.config.getNumberOfPreferredNeighbors() - 1).getConnectionState()
                         .getDownloadSpeed() == unchokedTemp.get(this.config.getNumberOfPreferredNeighbors())
@@ -357,19 +355,22 @@ public class LocalPeerManager extends Thread {
                     unchokedTemp = unchokedRandomized;
                 }
             }
-            unchokedTemp = unchokedTemp.stream().limit(this.config.getNumberOfPreferredNeighbors()).collect(Collectors.toList());
-        }
-        else {
+            unchokedTemp = unchokedTemp.stream().limit(this.config.getNumberOfPreferredNeighbors())
+                    .collect(Collectors.toList());
+        } else {
             unchokedTemp = new ArrayList<>(this.connectedPeers);
             Collections.shuffle(unchokedTemp);
-            unchokedTemp = unchokedTemp.stream().limit(this.config.getNumberOfPreferredNeighbors()).collect(Collectors.toList());
+            unchokedTemp = unchokedTemp.stream().limit(this.config.getNumberOfPreferredNeighbors())
+                    .collect(Collectors.toList());
         }
         // the choked list filter operation (line 376 at time of writing) was complaining about unchoked not being final or final-like and this made it happy
         unchoked = unchokedTemp;
 
         // The rest of the connected peers (except for the optimistically unchoke peer) are to be choked.
         List<PeerConnectionManager> choked = this.connectedPeers.stream()
-                .filter(peer -> peer != this.optimisticallyUnchokedPeer && !unchoked.contains(peer)).collect(Collectors.toList());;
+                .filter(peer -> peer != this.optimisticallyUnchokedPeer && !unchoked.contains(peer))
+                .collect(Collectors.toList());
+        ;
 
         Logger.print(Tag.EXECUTOR, "Re-evaluated unchoked remote peers. Unchoking peers: " +
                 unchoked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
@@ -403,19 +404,24 @@ public class LocalPeerManager extends Thread {
                 + ".");
     }
 
-    /**
-     * Re-evaluates the optimistically unchoked remote peer randomly.
-     */
-    private void reevaluateOptimisticPeer() {
-	Logger.print(Tag.DUMP, "Preparing to dump entire state");
-	String missing = "Missing pieces: ";
+    // dump the entire state of the program for debug purposes
+    private void dumpState()
+    {
+        if (true) {
+            return;
+        }
+
+        String dump = "Preparing to dump entire state";
+        System.out.println("Preparing to dump entire state");
+        String missing = "Missing pieces: ";
         for(int i = 0; i< config.getNumberOfPieces();i++)
         {
             if (this.localPieces[i].getStatus() != PieceStatus.HAVE) {
                 missing = missing + i + " ";
             }
         }
-        Logger.print(Tag.DUMP, missing);
+        // Logger.print(Tag.DUMP, missing);
+        dump += "\n" + missing;
         missing = "Requested pieces: ";
         for(int i = 0; i< config.getNumberOfPieces();i++)
         {
@@ -423,7 +429,8 @@ public class LocalPeerManager extends Thread {
                 missing = missing + i + " ";
             }
         }
-        Logger.print(Tag.DUMP, missing);
+        // Logger.print(Tag.DUMP, missing);
+        dump += "\n" + missing;
         String missingPeer;
         for(PeerConnectionManager peer: this.connectedPeers)
         {
@@ -433,12 +440,17 @@ public class LocalPeerManager extends Thread {
                     missingPeer = missingPeer + i + " ";
                 }
             }
-            Logger.print(Tag.DUMP, missingPeer);
+            // Logger.print(Tag.DUMP, missingPeer);
+            dump += "\n" + missingPeer;
+
         }
         for(PeerConnectionManager peer: this.connectedPeers)
         {
             try
-            {Logger.print(Tag.DUMP, peer.dumpState());
+            {
+                // Logger.print(Tag.DUMP, peer.dumpState());
+                dump += "\n" + peer.dumpState();
+
             }
             catch(Exception e)
             {
@@ -446,9 +458,17 @@ public class LocalPeerManager extends Thread {
                 e.printStackTrace(System.err);
             }
         }
-	Logger.print(Tag.DUMP, "Finished dumping entire state");
-	System.out.println("Finished Dumping State");
-	Logger.FlushDebug();
+        // Logger.print(Tag.DUMP, "Finished dumping entire state");
+        dump += "Finished dumping entire state";
+        Logger.print(Tag.DUMP, dump);
+        Logger.FlushDebug();
+        System.out.println("Finished Dumping State");
+        
+    }
+    /**
+     * Re-evaluates the optimistically unchoked remote peer randomly.
+     */
+    private void reevaluateOptimisticPeer() {
         Logger.print(Tag.EXECUTOR, "Re-evaluating optimitically unchoked. Currently: " + (this.optimisticallyUnchokedPeer != null ? this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() : "null"));
 	List<PeerConnectionManager> choked = this.connectedPeers.stream()
                 .filter(peer -> peer.getConnectionState().isLocalChoked() && peer.getConnectionState().isInterested()).collect(Collectors.toList());
