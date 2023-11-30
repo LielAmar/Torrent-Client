@@ -143,6 +143,7 @@ public class LocalPeerManager extends Thread {
         Logger.print(Tag.LOCAL_PEER_MANAGER, "Updating piece " + pieceId + " status to " + status.name());
 
         this.bitmapLock.writeLock().lock();
+        this.choosePieceLock.lock();
 
         if(this.localPieces[pieceId] != null)
         {
@@ -167,7 +168,7 @@ public class LocalPeerManager extends Thread {
         if (status == PieceStatus.HAVE) {
             announce(new NewLocalPeiceIntMes(pieceId));
         }
-
+        this.choosePieceLock.unlock();
         this.bitmapLock.writeLock().unlock();
     }
 

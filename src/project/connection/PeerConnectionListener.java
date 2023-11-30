@@ -96,17 +96,25 @@ public class PeerConnectionListener extends PeerConnection {
      * @return         Read byte array
      */
     private byte[] readBytes(int length) {
-        int c = 0;
-        int n = 0;
+        int nIters = 0;
+        int totalread = 0;
+        int n;
         try {
             if(length > 0) {
                 byte[] message = new byte[length];
-                while(n < length)
+                while(totalread < length)
                 {
-                    n += this.in.read(message, n, message.length - n);
-                    if (n != length) {
-                        Logger.print(Tag.LISTENER, "readBytes read less than expected (" + c + "): " + n + " instead of " + length);
+                    n = this.in.read(message, totalread, message.length - totalread);
+                    if (n < 0)
+                    {
+                        Logger.print(Tag.LISTENER, "readBytes in " + this.state.getRemotePeerId() + " read nothing (" + nIters + "): " + totalread + " instead of " + length);
                     }
+                    else if (totalread != length) {
+                        totalread += n;
+                        Logger.print(Tag.LISTENER, "readBytes in " + this.state.getRemotePeerId()
+                                + " read less than expected (" + nIters + "): " + totalread + " instead of " + length);
+                    }
+                    nIters++;
                 }
                 return message;
             }
