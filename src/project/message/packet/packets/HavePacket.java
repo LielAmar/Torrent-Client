@@ -3,6 +3,9 @@ package project.message.packet.packets;
 import project.exceptions.NetworkException;
 import project.message.packet.Packet;
 import project.message.packet.PacketType;
+import project.utils.Logger;
+import project.utils.Tag;
+
 
 import java.nio.ByteBuffer;
 
@@ -86,7 +89,10 @@ public class HavePacket extends Packet {
                 .put(payload, TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
         pieceIndexBuffer.rewind();
         this.pieceIndex = pieceIndexBuffer.getInt();
-
+        if (this.pieceIndex < 0)
+        {
+            Logger.print(Tag.DEBUG, "Recieved a have with invalid index " + pieceIndex + " from " + Thread.currentThread().getName());
+        }
         return true;
     }
 }

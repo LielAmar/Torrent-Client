@@ -85,6 +85,10 @@ public class PeerConnectionManager extends PeerConnection {
             Logger.print(Tag.PEER_CONNECTION_MANAGER, "Handshake received and parsed successfully");
             super.state.unlockHandshake();
 
+	        this.setName("Peer " + handshake.getPeerId() + " Manager");
+            sender.setName("Peer " + handshake.getPeerId() + " Sender");
+            listener.setName("Peer " + handshake.getPeerId() + " Listener");
+
             // Log the connection according to who connected to who
             if(this.state.isLocalConnectedToRemote()) {
                 this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() + " makes a connection to Peer " + this.state.getRemotePeerId() + ".");
@@ -222,16 +226,16 @@ public class PeerConnectionManager extends PeerConnection {
                 this.handler.SetInterestAndRequest();
                 break;
             case UNCHOKE_THREAD:
-                if(this.state.isLocalChoked()) {
+                //if(this.state.isLocalChoked()) {
                     this.state.setLocalChoked(false);
                     this.handler.sendUnchoke();
-                }
+                //}
                 break;
             case CHOKE_THREAD:
-                if(!this.state.isLocalChoked()) {
+                //if(!this.state.isLocalChoked()) {
                     this.state.setLocalChoked(true);
                     this.handler.sendChoke();
-                }
+                //}
                 break;
             default:
                 System.err.println("PeerConnectionManager recieved a control message of type " + message.getTypeString()
@@ -245,6 +249,6 @@ public class PeerConnectionManager extends PeerConnection {
     public String dumpState()
     {
         Logger.print(Tag.DEBUG, "Dumping state for peer " + this.state.getRemotePeerId());
-        return String.format("Peer Connection %d%nlocalInterested: %b%nlocalRequested: %b%nlocalRequestedID: %d%nshouldBeInterested: %b%n", this.state.getRemotePeerId(), this.state.isLocalInterestedIn(), this.state.getPieceRequested(), this.state.getPieceRequestedID(), this.handler.hasInterest());
+        return String.format("Peer Connection %d%nlocalInterested: %b%nlocalRequested: %b%nlocalRequestedID: %d%nshouldBeInterested: %b%nLocalChoked: %b%nremotechoked%b%n", this.state.getRemotePeerId(), this.state.isLocalInterestedIn(), this.state.getPieceRequested(), this.state.getPieceRequestedID(), this.handler.hasInterest(), this.state.isLocalChoked(), this.state.isRemoteChoked());
     }
 }

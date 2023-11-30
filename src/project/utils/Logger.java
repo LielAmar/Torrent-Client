@@ -8,34 +8,71 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 
 public class Logger {
-
+    private static BufferedWriter debugWriter = null;
+    public static void FlushDebug()
+    {
+	try {
+	if(debugWriter != null)
+	{
+		System.out.println("Flushing DebugLog");
+		debugWriter.flush();
+	}
+	}
+	catch (IOException e)
+	{
+		System.err.println(e);
+		e.printStackTrace();
+	}
+    }
     public static void print(Tag tag, Object message) {
         if(tag.isLogsEnabled()) {
             System.out.print("[" + tag + "] ");
             System.out.println(message);
         }
+	if(debugWriter != null)
+	{
+	    try {
+	        debugWriter.write("[" + tag + "]" + message + "\n");
+	        //debugWriter.flush();
+		//System.out.println("Wrote to debugLog");
+	    }
+	    catch (IOException e)
+	    {
+	        throw new RuntimeException(e);
+	    }
+	}
     }
 
     private BufferedWriter writer;
 
     public Logger(String filePath) {
-        try {
-            File logFile = new File((new File(filePath)).getAbsolutePath());
+	    String path = (new File(filePath)).getAbsolutePath();
+	    String debugPath = path.substring(0, path.lastIndexOf(File.separator)) + "/debug.log";
+	    System.out.println(debugPath);
 
+        try {
+            File logFile = new File(path);
+	    File debugFile = new File(debugPath);
             if(!logFile.exists()) {
                 boolean created = logFile.createNewFile();
             }
-
+	    if(!debugFile.exists()){
+		debugFile.createNewFile();
+	    }
             this.writer = new BufferedWriter(new FileWriter(logFile));
+	    debugWriter = new BufferedWriter(new FileWriter(debugFile));
         } catch (IOException exception) {
             System.err.println("An error occurred when trying to open the log file!");
+	    System.err.println("Attempted path: " + path);
+	    System.err.println(exception);
+	    exception.printStackTrace();
         }
     }
 
     public void log(String message) {
         if(this.writer == null) {
             System.err.println("Tried to write a log message into the log file before the file has been set up!");
-            return;
+	    return;
         }
 
         String timestamp = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss").format(Calendar.getInstance().getTime());
@@ -61,6 +98,8 @@ public class Logger {
     public void close() {
         try {
             this.writer.close();
+	   debugWriter.close();
+	   debugWriter=null;
         } catch (IOException exception) {
             System.err.println("An error occurred when trying to close the log file!");
             exception.printStackTrace(System.out);

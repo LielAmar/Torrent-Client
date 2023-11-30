@@ -2,6 +2,7 @@ package project.utils;
 
 public enum Tag {
     DEBUG("DEBUG", false),
+    DUMP("DUMP", false),
     EXITING("EXITING", true),
     CONFIGURATION("CONFIGURATION", true),
     CONNECTIONS("CONNECTIONS", true),

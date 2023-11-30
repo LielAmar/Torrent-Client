@@ -319,7 +319,7 @@ public class PeerConnectionHandler {
                 this.state.getRemotePeerId());
 
         if(this.localPeerManager.getLocalPieces()[pieceIndex].getContent() == null) {
-            System.err.println("Tried to send a PIECE packet with a piece local peer doesn't have to peer " +
+            Logger.print(Tag.DEBUG, "Tried to send a PIECE packet with a piece " + pieceIndex + " local peer doesn't have to peer " +
                     this.state.getRemotePeerId());
             return;
         }
@@ -390,8 +390,14 @@ public class PeerConnectionHandler {
         Logger.print(Tag.HANDLER, "Preparing a Request packet to send to peer " +
                 this.state.getRemotePeerId());
 
-        if(pieceIndex == -1) {
+        if (pieceIndex == -1) {
             System.err.println("Tried to send a REQUEST packet with an invalid piece index");
+            return;
+        }
+    
+	    if(this.state.getPieces()[pieceIndex] != PieceStatus.HAVE)
+        {
+            Logger.print(Tag.DEBUG, "Tried to send a REQUEST packet for a piece " + pieceIndex + " that peer " + this.state.getRemotePeerId() + "doesnt have");
             return;
         }
 
