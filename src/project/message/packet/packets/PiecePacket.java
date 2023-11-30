@@ -86,7 +86,7 @@ public class PiecePacket extends Packet {
 
     @Override
     public boolean parse(byte[] payload) {
-        if(payload[0] != super.type.getTypeId()) {
+        if (payload[0] != super.type.getTypeId()) {
             return false;
         }
 
@@ -106,5 +106,10 @@ public class PiecePacket extends Packet {
                 this.pieceContent, 0, contentLength);
 
         return true;
+    }
+    
+    public String dataString()
+    {
+        return "pieceIndex: " + this.pieceIndex;
     }
 }

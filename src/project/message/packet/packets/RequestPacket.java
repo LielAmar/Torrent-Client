@@ -74,7 +74,7 @@ public class RequestPacket extends Packet {
 
     @Override
     public boolean parse(byte[] payload) {
-        if(payload[0] != super.type.getTypeId()) {
+        if (payload[0] != super.type.getTypeId()) {
             return false;
         }
 
@@ -84,10 +84,15 @@ public class RequestPacket extends Packet {
 
         // Parse the piece index
         ByteBuffer pieceIndexBuffer = ByteBuffer.allocate(PIECE_INDEX_FIELD_LENGTH)
-                .put(payload,  TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
+                .put(payload, TYPE_FIELD_LENGTH, PIECE_INDEX_FIELD_LENGTH);
         pieceIndexBuffer.rewind();
         this.pieceIndex = pieceIndexBuffer.getInt();
 
         return true;
+    }
+    
+    public String dataString()
+    {
+        return "pieceIndex: " + this.pieceIndex;
     }
 }

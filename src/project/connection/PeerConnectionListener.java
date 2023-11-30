@@ -84,7 +84,7 @@ public class PeerConnectionListener extends PeerConnection {
         Packet packet = Packet.PacketFromBytes(payload);
 
         Logger.print(Tag.LISTENER, "Parsed packet of type " + packet.getTypeString() + " from peer " +
-                this.state.getRemotePeerId());
+                this.state.getRemotePeerId() + ". Data: " + packet.dataString());
 
         return packet;
     }
@@ -109,8 +109,7 @@ public class PeerConnectionListener extends PeerConnection {
                     {
                         Logger.print(Tag.LISTENER, "readBytes in " + this.state.getRemotePeerId() + " read nothing (" + nIters + "): " + totalread + " instead of " + length);
                     }
-                    else if (totalread != length) {
-                        totalread += n;
+                    else if ((totalread += n) != length) {
                         Logger.print(Tag.LISTENER, "readBytes in " + this.state.getRemotePeerId()
                                 + " read less than expected (" + nIters + "): " + totalread + " instead of " + length);
                     }

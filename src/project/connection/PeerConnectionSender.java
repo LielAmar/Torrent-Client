@@ -69,10 +69,8 @@ public class PeerConnectionSender extends PeerConnection {
 
         try {
             Logger.print(Tag.SENDER, "Attempting to send a message of type " + message.getTypeString() +
-                    " to peer " + this.state.getRemotePeerId());
+                    " to peer " + this.state.getRemotePeerId() + ". Data: " + message.dataString());
             byte[] messageBytes = message.build();
-            Logger.print(Tag.SENDER, "Sent a message of type " + message.getTypeString() +
-                    " to peer " + this.state.getRemotePeerId());// + "bytes: \"" + bytesToHex(messageBytes) + "\"");
             this.out.write(messageBytes);
             this.out.flush();
 

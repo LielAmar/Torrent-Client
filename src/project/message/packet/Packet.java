@@ -48,42 +48,48 @@ public abstract class Packet extends Message{
     public static Packet PacketFromBytes(byte[] messagePayload) {
         Packet packet;
         switch (PacketType.fromPayload(messagePayload)) {
-        case CHOKE:
-            packet =  new ChokePacket();
-            break;
-        case UNCHOKE:
-            packet =  new UnchokePacket();
-            break;
-        case INTERESTED:
-            packet =  new InterestedPacket();
-            break;
-        case NOT_INTERESTED:
-            packet =  new NotInterestedPacket();
-            break;
-        case HAVE:
-            packet =  new HavePacket();
-            break;
-        case BITFIELD:
-            packet =  new BitFieldPacket();
-            break;
-        case REQUEST:
-            packet =  new RequestPacket();
-            break;
-        case PIECE:
-            packet =  new PiecePacket();
-            break;
-        case HANDSHAKE:
-            packet =  new HandshakePacket(messagePayload);
-            break;
-        default:
-            packet = null;
-            break;
-        };
+            case CHOKE:
+                packet = new ChokePacket();
+                break;
+            case UNCHOKE:
+                packet = new UnchokePacket();
+                break;
+            case INTERESTED:
+                packet = new InterestedPacket();
+                break;
+            case NOT_INTERESTED:
+                packet = new NotInterestedPacket();
+                break;
+            case HAVE:
+                packet = new HavePacket();
+                break;
+            case BITFIELD:
+                packet = new BitFieldPacket();
+                break;
+            case REQUEST:
+                packet = new RequestPacket();
+                break;
+            case PIECE:
+                packet = new PiecePacket();
+                break;
+            case HANDSHAKE:
+                packet = new HandshakePacket(messagePayload);
+                break;
+            default:
+                packet = null;
+                break;
+        }
+        ;
 
-        if(packet == null || !packet.parse(messagePayload)) {
+        if (packet == null || !packet.parse(messagePayload)) {
             packet = new UnknownPacket();
         }
 
         return packet;
+    }
+    
+    public String dataString()
+    {
+        return "";
     }
 }
