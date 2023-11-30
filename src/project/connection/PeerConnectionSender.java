@@ -63,7 +63,7 @@ public class PeerConnectionSender extends PeerConnection {
     }
 
     private void sendMessage(Packet message) {
-        if(!this.state.isConnectionActive()) {
+        if (!this.state.isConnectionActive()) {
             return;
         }
 
@@ -72,14 +72,14 @@ public class PeerConnectionSender extends PeerConnection {
                     " to peer " + this.state.getRemotePeerId());
             byte[] messageBytes = message.build();
             Logger.print(Tag.SENDER, "Sent a message of type " + message.getTypeString() +
-                    " to peer " + this.state.getRemotePeerId());
+                    " to peer " + this.state.getRemotePeerId());// + "bytes: \"" + bytesToHex(messageBytes) + "\"");
             this.out.write(messageBytes);
             this.out.flush();
 
-        } catch(NetworkException exception) {
+        } catch (NetworkException exception) {
             System.err.println("An error occurred when building a message of type " + message.getTypeString() +
                     " to send to peer " + this.state.getRemotePeerId());
-        } catch(IOException exception) {
+        } catch (IOException exception) {
             System.err.println("An error occurred whens sending a message of type " + message.getTypeString() +
                     " to peer " + this.state.getRemotePeerId());
             Logger.print(Tag.SENDER, "An error occurred whens sending a message of type " + message.getTypeString() +
@@ -88,4 +88,17 @@ public class PeerConnectionSender extends PeerConnection {
             exception.printStackTrace();
         }
     }
+    
+    private static final char[] HEX_ARRAY = "0123456789ABCDEF".toCharArray();
+
+    public static String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = HEX_ARRAY[v >>> 4];
+            hexChars[j * 2 + 1] = HEX_ARRAY[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
 }
