@@ -8,6 +8,7 @@ import project.utils.Tag;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 
@@ -15,7 +16,7 @@ public class PeerConnectionSender extends PeerConnection {
 
     private final BlockingQueue<Packet> messageQueue;
 
-    private DataOutputStream out;
+    private OutputStream out;
 
     public PeerConnectionSender(Socket connection, LocalPeerManager localPeerManager,
                                 ConnectionState state, BlockingQueue<Packet> outgoingMessageQueue) {
@@ -26,7 +27,7 @@ public class PeerConnectionSender extends PeerConnection {
 
     public void run() {
         try {
-            this.out = new DataOutputStream(this.connection.getOutputStream());
+            this.out = this.connection.getOutputStream();
 
             // Send the first outgoing message (handshake)
             Packet packet = this.messageQueue.take();
@@ -70,9 +71,11 @@ public class PeerConnectionSender extends PeerConnection {
             Logger.print(Tag.SENDER, "Attempting to send a message of type " + message.getTypeString() +
                     " to peer " + this.state.getRemotePeerId());
             byte[] messageBytes = message.build();
-
+            Logger.print(Tag.SENDER, "Sent a message of type " + message.getTypeString() +
+                    " to peer " + this.state.getRemotePeerId());
             this.out.write(messageBytes);
             this.out.flush();
+
         } catch(NetworkException exception) {
             System.err.println("An error occurred when building a message of type " + message.getTypeString() +
                     " to send to peer " + this.state.getRemotePeerId());

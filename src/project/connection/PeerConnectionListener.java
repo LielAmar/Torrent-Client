@@ -95,10 +95,15 @@ public class PeerConnectionListener extends PeerConnection {
      * @return         Read byte array
      */
     private byte[] readBytes(int length) {
+        int n;
         try {
             if(length > 0) {
                 byte[] message = new byte[length];
-                this.in.read(message, 0, message.length);
+                n = this.in.read(message, 0, message.length);
+                if (n != length)
+                {
+                    Logger.print(Tag.LISTENER, "readBytes read less than expected: " + n + " instead of " + length);
+                }
                 return message;
             }
         } catch (IOException exception) {

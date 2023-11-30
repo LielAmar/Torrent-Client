@@ -462,10 +462,10 @@ public class LocalPeerManager extends Thread {
                 newOptomisticallyUnchoked.getConnectionState().getRemotePeerId());
         if(this.optimisticallyUnchokedPeer != newOptomisticallyUnchoked)
         {
-	    if(this.optimisticallyUnchokedPeer != null)
-	    {
-	        this.optimisticallyUnchokedPeer.SendControlMessage(new ChokeThreadIntMes());
-	    }
+            if(this.optimisticallyUnchokedPeer != null)
+            {
+                this.optimisticallyUnchokedPeer.SendControlMessage(new ChokeThreadIntMes());
+            }
             newOptomisticallyUnchoked.SendControlMessage(new UnchokeThreadIntMes());
             this.optimisticallyUnchokedPeer = newOptomisticallyUnchoked;
         }

@@ -82,7 +82,7 @@ public class PeerConnectionManager extends PeerConnection {
             }
 
             super.state.setRemotePeerId(handshake.getPeerId());
-            Logger.print(Tag.PEER_CONNECTION_MANAGER, "Handshake received and parsed successfully");
+            Logger.print(Tag.PEER_CONNECTION_MANAGER, "Handshake received and parsed successfully from peer " + handshake.getPeerId());
             super.state.unlockHandshake();
 
 	        this.setName("Peer " + handshake.getPeerId() + " Manager");
