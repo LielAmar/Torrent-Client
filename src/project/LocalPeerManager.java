@@ -542,6 +542,19 @@ public class LocalPeerManager extends Thread {
     public void SetAllPeersConnected()
     {
         allPeersConnected.set(true);
+        for(PeerConnectionManager peer : this.connectedPeers)
+        {
+            while (peer.getConnectionState().getPieces().length == 0) { }
+            if(peer.getConnectionState().getPieces().length != config.getNumberOfPieces())
+            {
+                System.out.println(
+                        "Peer " + peer.getConnectionState().getRemotePeerId() + " has an invalid number of pieces "
+                                + peer.getConnectionState().getPieces().length + " vs " + config.getNumberOfPieces());
+                System.out.flush();
+                this.logger.close();
+                System.exit(0);
+            }
+        }
     }
 
     private boolean AllTransfersCompleted() {
