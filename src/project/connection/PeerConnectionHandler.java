@@ -80,7 +80,16 @@ public class PeerConnectionHandler {
     private void handleChoke(ChokePacket packet) {
         this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
                 " is choked by " + this.state.getRemotePeerId() + ".");
-                
+
+        if (this.state.isRemoteChoked())
+        {
+            System.out.println("Peer " + this.localPeerManager.getLocalPeerId() + " was choked by "
+                    + this.state.getRemotePeerId() + " even though it was already choked");
+            System.out.flush();
+            this.localPeerManager.getLogger().close();
+            System.exit(0);
+        }
+        
         this.state.setRemoteChoke(true);
 
         if(this.state.getPieceRequested())
@@ -103,6 +112,14 @@ public class PeerConnectionHandler {
         this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
                 " is unchoked by " + this.state.getRemotePeerId() + ".");
 
+        if (!this.state.isRemoteChoked())
+        {
+            System.out.println("Peer " + this.localPeerManager.getLocalPeerId() +
+                    " was unchoked by " + this.state.getRemotePeerId() + " even though it was already unchoked");
+                System.out.flush();
+            this.localPeerManager.getLogger().close();
+            System.exit(0);
+        }
         this.state.setRemoteChoke(false);
 
         // handle the edge case where at the start, we sent a request before we were ever unchoked

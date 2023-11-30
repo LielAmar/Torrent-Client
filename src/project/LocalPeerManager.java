@@ -144,6 +144,17 @@ public class LocalPeerManager extends Thread {
 
         this.bitmapLock.writeLock().lock();
 
+        if(this.localPieces[pieceId] != null)
+        {
+            if(this.localPieces[pieceId].getStatus() == status)
+            {
+                System.out.println("Tried to set piece " + pieceId + " to " + status + " when it was already in that state");
+                System.out.flush();
+                this.logger.close();
+                System.exit(0);
+            }
+        }
+
         // If the local piece with the given id does not exist, create it. Otherwise, update the existing piece
         if (this.localPieces[pieceId] == null) {
             this.localPieces[pieceId] = new Piece(status, content);

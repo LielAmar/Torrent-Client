@@ -226,16 +226,16 @@ public class PeerConnectionManager extends PeerConnection {
                 this.handler.SetInterestAndRequest();
                 break;
             case UNCHOKE_THREAD:
-                //if(this.state.isLocalChoked()) {
+                if(this.state.isLocalChoked()) {
                     this.state.setLocalChoked(false);
                     this.handler.sendUnchoke();
-                //}
+                }
                 break;
             case CHOKE_THREAD:
-                //if(!this.state.isLocalChoked()) {
+                if(!this.state.isLocalChoked()) {
                     this.state.setLocalChoked(true);
                     this.handler.sendChoke();
-                //}
+                }
                 break;
             default:
                 System.err.println("PeerConnectionManager recieved a control message of type " + message.getTypeString()

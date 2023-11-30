@@ -42,7 +42,7 @@ public class ConnectionState {
         // Assume that all remote peers did not choke local peer, meaning local peer is able to receive data from anyone.
         // Every K seconds, there's a reevaluation in which the remote peers unchoke or choke the local peer, and then the
         // local peer is either able or not able to receive data from the specific remote peer
-        this.remoteChoked = new AtomicBoolean(false);
+        this.remoteChoked = new AtomicBoolean(true);
 
         this.interested = new AtomicBoolean(false);
         this.localInterestedIn = new AtomicBoolean(false);
