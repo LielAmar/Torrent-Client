@@ -116,7 +116,7 @@ public class PeerConnectionHandler {
         {
             System.out.println("Peer " + this.localPeerManager.getLocalPeerId() +
                     " was unchoked by " + this.state.getRemotePeerId() + " even though it was already unchoked");
-                System.out.flush();
+            System.out.flush();
             this.localPeerManager.getLogger().close();
             System.exit(0);
         }
@@ -359,6 +359,13 @@ public class PeerConnectionHandler {
         if (!this.state.hasSentBitfield()) {
             System.err.println("Tried to send a HAVE packet before a BITFIELD packet has been sent");
             return;
+        }
+        if(pieceIndex < 0)
+        {
+            System.out.println("Peer " + this.localPeerManager.getLocalPeerId() + " tried to send a HAVE packet with invalid index " + pieceIndex);
+            System.out.flush();
+            this.localPeerManager.getLogger().close();
+            System.exit(0);
         }
 
         HavePacket packet = new HavePacket();

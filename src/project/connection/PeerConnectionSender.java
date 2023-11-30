@@ -82,6 +82,10 @@ public class PeerConnectionSender extends PeerConnection {
         } catch(IOException exception) {
             System.err.println("An error occurred whens sending a message of type " + message.getTypeString() +
                     " to peer " + this.state.getRemotePeerId());
+            Logger.print(Tag.SENDER, "An error occurred whens sending a message of type " + message.getTypeString() +
+                    " to peer " + this.state.getRemotePeerId() + ". " + exception.toString());
+            System.err.println(exception);
+            exception.printStackTrace();
         }
     }
 }

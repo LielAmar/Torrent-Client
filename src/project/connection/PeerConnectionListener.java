@@ -8,6 +8,7 @@ import project.utils.Tag;
 
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 
@@ -16,7 +17,7 @@ public class PeerConnectionListener extends PeerConnection {
     // private final BlockingQueue<Packet> messageQueue;
     private final PeerConnectionManager manager;
 
-    private DataInputStream in;
+    private InputStream in;
 
     public PeerConnectionListener(Socket connection, LocalPeerManager localPeerManager,
                                   ConnectionState state, PeerConnectionManager manager) {
@@ -28,7 +29,7 @@ public class PeerConnectionListener extends PeerConnection {
 
     public void run() {
         try {
-            this.in = new DataInputStream(this.connection.getInputStream());
+            this.in = this.connection.getInputStream();
 
             // Listen to the first incoming message (handshake)
             byte[] message = this.readBytes(HandshakePacket.HANDSHAKE_LENGTH);
