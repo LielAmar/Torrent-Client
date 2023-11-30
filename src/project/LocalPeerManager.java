@@ -602,6 +602,8 @@ public class LocalPeerManager extends Thread {
             announce(new TerminateIntMes());
             dumpFile();
             executor.shutdown();
+            this.logger.close();
+            System.exit(0); // giving up on shutting down cleanly, can fix it later if we really want
         }
     }
 
