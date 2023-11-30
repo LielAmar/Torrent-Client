@@ -297,6 +297,7 @@ public class LocalPeerManager extends Thread {
         if (p.getStatus() != PieceStatus.REQUESTED) {
             throw new RuntimeException("Tried to cancel peiece request for a peice that isn't requested");
         }
+        p.setStatus(PieceStatus.NOT_HAVE);
         this.choosePieceLock.unlock();
     }
 
