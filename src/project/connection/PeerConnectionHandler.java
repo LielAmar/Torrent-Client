@@ -95,6 +95,7 @@ public class PeerConnectionHandler {
         if(this.state.getPieceRequested())
         {
             this.localPeerManager.cancelPieceRequest(this.state.getPieceRequestedID());
+            Logger.print(Tag.REQUESTS, "Peer " + this.state.getRemotePeerId() + " is canceling request for piece " + this.state.getPieceRequestedID() + "due to being choked");
         }
         this.state.setPieceRequested(false);
     }
@@ -276,6 +277,7 @@ public class PeerConnectionHandler {
         this.state.increaseDownloadSpeed();
 
         // we no longer have a requested piece, as we have recieved the previous one and havent requested another yet
+        Logger.print(Tag.REQUESTS, "Peer " + this.state.getRemotePeerId() + " recieved piece " + this.state.getPieceRequestedID());
         this.state.setPieceRequested(false);
         this.SetInterestAndRequest();
 
@@ -495,7 +497,7 @@ public class PeerConnectionHandler {
             {
                 int pieceID = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
                 // System.out.println("PeerConnectionHandler " + this.state.getRemotePeerId() + " didn't have a piece requested, now requesting " + pieceID);
-                Logger.print(Tag.DEBUG, "PeerConnectionHandler " + this.state.getRemotePeerId() + " didn't have a piece requested, now requesting " + pieceID);
+                Logger.print(Tag.REQUESTS, "PeerConnectionHandler " + this.state.getRemotePeerId() + " didn't have a piece requested, now requesting " + pieceID);
 
                 if (pieceID >= 0)
                 {

@@ -4,6 +4,7 @@ public enum Tag {
     DEBUG("DEBUG", false),
     DUMP("DUMP", false),
     PACKET("PACKET", false),
+    REQUESTS("REQUESTS", false),
     EXITING("EXITING", true),
     CONFIGURATION("CONFIGURATION", true),
     CONNECTIONS("CONNECTIONS", true),
