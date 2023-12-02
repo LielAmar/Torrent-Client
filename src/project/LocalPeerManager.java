@@ -360,7 +360,7 @@ public class LocalPeerManager extends Thread {
         } else {
             unchokedTemp = new ArrayList<>(this.connectedPeers);
             Collections.shuffle(unchokedTemp);
-            unchokedTemp = unchokedTemp.stream().limit(this.config.getNumberOfPreferredNeighbors())
+            unchokedTemp = unchokedTemp.stream().filter(peer -> peer != this.optimisticallyUnchokedPeer).limit(this.config.getNumberOfPreferredNeighbors())
                     .collect(Collectors.toList());
         }
         // the choked list filter operation (line 376 at time of writing) was complaining about unchoked not being final or final-like and this made it happy
@@ -374,6 +374,8 @@ public class LocalPeerManager extends Thread {
 
         Logger.print(Tag.EXECUTOR, "Re-evaluated unchoked remote peers. Unchoking peers: " +
                 unchoked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
+                        .collect(Collectors.joining(",")) + " Choking peers: " +
+                choked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
                         .collect(Collectors.joining(",")));
 
         unchoked.forEach(peer -> {
@@ -384,9 +386,9 @@ public class LocalPeerManager extends Thread {
             peer.SendControlMessage(new UnchokeThreadIntMes());
         });
 
-        Logger.print(Tag.EXECUTOR, "Re-evaluated choked remote peers. Choking peers: " +
-                choked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
-                        .collect(Collectors.joining(",")));
+        // Logger.print(Tag.EXECUTOR, "Re-evaluated choked remote peers. Choking peers: " +
+        //        choked.stream().map(peer -> peer.getConnectionState().getRemotePeerId() + "")
+        //                .collect(Collectors.joining(",")));
 
         choked.forEach(peer -> {
             // if(!peer.getConnectionState().isLocalChoked()) {
@@ -469,19 +471,17 @@ public class LocalPeerManager extends Thread {
      * Re-evaluates the optimistically unchoked remote peer randomly.
      */
     private void reevaluateOptimisticPeer() {
-        Logger.print(Tag.EXECUTOR, "Re-evaluating optimitically unchoked. Currently: " + (this.optimisticallyUnchokedPeer != null ? this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() : "null"));
+        // Logger.print(Tag.EXECUTOR, "Re-evaluating optimitically unchoked. Currently: " + (this.optimisticallyUnchokedPeer != null ? this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() : "null"));
 	List<PeerConnectionManager> choked = this.connectedPeers.stream()
                 .filter(peer -> peer.getConnectionState().isLocalChoked() && peer.getConnectionState().isInterested()).collect(Collectors.toList());
         if (choked.size() == 0)
         {
-            Logger.print(Tag.EXECUTOR,
-                    "All interested peers are already unchoked, there is no optimistically unchoked peer");
+            Logger.print(Tag.EXECUTOR, "Re-evaluating optimistically unchoked. Currently: " + (this.optimisticallyUnchokedPeer != null ? this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() : "null") + ". All interested peers are already unchoked, the optimistially unchoked peer will not change");
             return;
         }
         PeerConnectionManager newOptomisticallyUnchoked = choked.get(random.nextInt(choked.size()));
 
-        Logger.print(Tag.EXECUTOR, "Re-evaluated optimistically unchoked remote peer. Unchoking peer " +
-                newOptomisticallyUnchoked.getConnectionState().getRemotePeerId());
+        Logger.print(Tag.EXECUTOR, "Re-evaluated optimistically unchoked remote peer. Was: " + (this.optimisticallyUnchokedPeer != null ? this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() : "null") + " New: " + newOptomisticallyUnchoked.getConnectionState().getRemotePeerId());
         if(this.optimisticallyUnchokedPeer != newOptomisticallyUnchoked)
         {
             if(this.optimisticallyUnchokedPeer != null)
@@ -618,17 +618,17 @@ public class LocalPeerManager extends Thread {
 
         } finally {
             // terminate all peer connections
-            Logger.print(Tag.EXITING, "Finished all transfers, exiting");
             announce(new TerminateIntMes());
             dumpFile();
             executor.shutdown();
+            Logger.print(Tag.EXITING, "Finished all transfers, exiting");
             this.logger.close();
             System.exit(0); // giving up on shutting down cleanly, can fix it later if we really want
         }
     }
 
     private void HandleControlMessage(InternalMessage message) throws UnsupportedOperationException {
-        Logger.print(Tag.LOCAL_PEER_MANAGER, "Local Peer Manager is processing control message of type " + message.getTypeString());
+        // Logger.print(Tag.LOCAL_PEER_MANAGER, "Local Peer Manager is processing control message of type " + message.getTypeString());
         switch (message.getType()) {
             case RECEIVED:
                 ReceivedIntMes recMessage = (ReceivedIntMes) message;
@@ -638,6 +638,9 @@ public class LocalPeerManager extends Thread {
                     throw new UnsupportedOperationException("'Recieved' control message with no contents");
                 }
                 setLocalPiece(recMessage.GetPieceIndex(), PieceStatus.HAVE, recMessage.GetPieceContent());
+                this.logger.log("Peer " + this.getLocalPeerId() +
+                    " has downloaded the piece " + recMessage.GetPieceIndex() + " from " + recMessage.GetSourcePeerId() + "." +
+                    " Now the number of pieces it has is " + this.getLocalPiecesCount() + ".");
                 break;
             default:
                 System.err.println("LocalPeerManager recieved a control message of type " + message.getTypeString()

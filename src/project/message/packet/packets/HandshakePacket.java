@@ -53,7 +53,7 @@ public class HandshakePacket extends Packet {
     }
 
     public byte[] build() {
-        System.out.println("[DEBUG]: Handshake message builder peer id: " + this.peerId);
+        // System.out.println("[DEBUG]: Handshake message builder peer id: " + this.peerId);
         byte[] payload = new byte[HANDSHAKE_LENGTH];
 
         int i;

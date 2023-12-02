@@ -45,8 +45,7 @@ public class Logger {
 
     public Logger(String filePath) {
 	    String path = (new File(filePath)).getAbsolutePath();
-	    String debugPath = path.substring(0, path.lastIndexOf(File.separator)) + "/debug.log";
-	    System.out.println(debugPath);
+        String debugPath = path.substring(0, path.lastIndexOf(File.separator)) + "/debug.log";
 
         try {
             File logFile = new File(path);

@@ -101,6 +101,8 @@ public class PeerConnectionManager extends PeerConnection {
             this.handler.sendBitfield();
             // this.localPeerManager.releaseBitmapLock();
 
+            // while (super.state.isConnectionActive()) {}
+
             // Handle incoming packets and prepare replies
             while (super.state.isConnectionActive()) {
                 
@@ -174,7 +176,7 @@ public class PeerConnectionManager extends PeerConnection {
 
             this.listener.join();
             this.sender.join();
-            Logger.print(Tag.EXITING, String.format("PeerManager %d, Listener killed: %b, Sender killed: %b", this.state.getRemotePeerId(), !listener.isAlive(), !sender.isAlive()));
+            //Logger.print(Tag.EXITING, String.format("PeerManager %d, Listener killed: %b, Sender killed: %b", this.state.getRemotePeerId(), !listener.isAlive(), !sender.isAlive()));
         } catch (IOException exception) {
             exception.printStackTrace();
         }

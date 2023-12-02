@@ -31,8 +31,8 @@ public class PeerConnectionHandler {
      * @param packet   Packet to handle
      */
     public void handle(Packet packet) {
-        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
-                this.state.getRemotePeerId());
+        // Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+        //         this.state.getRemotePeerId());
 
         switch (packet.getType()) {
             case CHOKE:
@@ -81,6 +81,9 @@ public class PeerConnectionHandler {
         this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
                 " is choked by " + this.state.getRemotePeerId() + ".");
 
+        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId());
+
         if (this.state.isRemoteChoked())
         {
             System.out.println("Peer " + this.localPeerManager.getLocalPeerId() + " was choked by "
@@ -112,6 +115,9 @@ public class PeerConnectionHandler {
     private void handleUnchoke(UnchokePacket packet) {
         this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
                 " is unchoked by " + this.state.getRemotePeerId() + ".");
+
+        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId());
 
         if (!this.state.isRemoteChoked())
         {
@@ -147,6 +153,9 @@ public class PeerConnectionHandler {
         this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
                 " received the ‘interested’ message from " + this.state.getRemotePeerId() + ".");
 
+        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId());
+
         this.state.setInterested(true);
     }
 
@@ -161,6 +170,9 @@ public class PeerConnectionHandler {
     private void handleNotInterested(NotInterestedPacket packet) {
         this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
                 " received the ‘not interested’ message from " + this.state.getRemotePeerId() + ".");
+        
+        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId());
 
         this.state.setInterested(false);
     }
@@ -178,6 +190,9 @@ public class PeerConnectionHandler {
     private void handleBitfield(BitFieldPacket packet) {
         PieceStatus[] pieces = PieceStatus.bitsetToPiecesStatus(packet.getBitfield(),
                 this.localPeerManager.getConfig().getNumberOfPieces());
+
+        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId());
 
         this.state.setPieces(pieces);
 
@@ -207,6 +222,9 @@ public class PeerConnectionHandler {
                 + packet.getPieceIndex() + ".");
 
         int pieceIndex = packet.getPieceIndex();
+
+        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId() + " for piece " + pieceIndex);
 
         this.state.updatePiece(pieceIndex);
 
@@ -251,6 +269,9 @@ public class PeerConnectionHandler {
     private void handleRequest(RequestPacket packet) {
         int pieceIndex = packet.getPieceIndex();
 
+        Logger.print(Tag.HANDLER, "Received a " + packet.getTypeString() + " from peer " +
+                this.state.getRemotePeerId() + " for piece " + pieceIndex);
+
         // If the remote peer is not locally choked, it means the local peer can send pieces to it.
         if(!this.state.isLocalChoked()) {
             this.sendPiece(pieceIndex);
@@ -268,12 +289,18 @@ public class PeerConnectionHandler {
      * @param packet   The Piece Packet
      */
     private void handlePiece(PiecePacket packet) {
-        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
-                " has downloaded the piece " + packet.getPieceIndex() + " from " + this.state.getRemotePeerId() + "." +
-                " Now the number of pieces it has is " + this.localPeerManager.getLocalPiecesCount() + ".");
+        // this is moved to the localPeerManager, because if it is here,it is possible that the localPieceCount could be wrong
+        // if another thread has recieved a peice and passed it to the localPeerManager but it hasn't been processed yet
+//        this.localPeerManager.getLogger().log("Peer " + this.localPeerManager.getLocalPeerId() +
+//                " has downloaded the piece " + packet.getPieceIndex() + " from " + this.state.getRemotePeerId() + "." +
+//                " Now the number of pieces it has is " + this.localPeerManager.getLocalPiecesCount() + ".");
+
+        Logger.print(Tag.HANDLER, "Received " + packet.getTypeString() + " " + packet.getPieceIndex() + " from peer " +
+                this.state.getRemotePeerId());
+
 
         // this.localPeerManager.setLocalPiece(packet.getPieceIndex(), PieceStatus.HAVE, packet.getPieceContent());
-        this.localPeerManager.SendControlMessage(new ReceivedIntMes(packet.getPieceIndex(), packet.getPieceContent()));
+        this.localPeerManager.SendControlMessage(new ReceivedIntMes(packet.getPieceIndex(), packet.getPieceContent(), this.state.getRemotePeerId()));
         this.state.increaseDownloadSpeed();
 
         // we no longer have a requested piece, as we have recieved the previous one and havent requested another yet
@@ -335,7 +362,7 @@ public class PeerConnectionHandler {
 
     public void sendPiece(int pieceIndex) {
         Logger.print(Tag.HANDLER, "Preparing a Piece packet to send to peer " +
-                this.state.getRemotePeerId());
+                this.state.getRemotePeerId() + " for piece " + pieceIndex);
 
         if(this.localPeerManager.getLocalPieces()[pieceIndex].getContent() == null) {
             Logger.print(Tag.DEBUG, "Tried to send a PIECE packet with a piece " + pieceIndex + " local peer doesn't have to peer " +
@@ -356,7 +383,7 @@ public class PeerConnectionHandler {
 
     public void sendHave(int pieceIndex) {
         Logger.print(Tag.HANDLER, "Preparing a Have packet to send to peer " +
-                this.state.getRemotePeerId());
+                this.state.getRemotePeerId() + " for piece " + pieceIndex);
 
         if (!this.state.hasSentBitfield()) {
             System.err.println("Tried to send a HAVE packet before a BITFIELD packet has been sent");
@@ -414,7 +441,7 @@ public class PeerConnectionHandler {
 
     private void sendRequest(int pieceIndex) {
         Logger.print(Tag.HANDLER, "Preparing a Request packet to send to peer " +
-                this.state.getRemotePeerId());
+                this.state.getRemotePeerId() + " for piece " + pieceIndex);
 
         if (pieceIndex == -1) {
             System.err.println("Tried to send a REQUEST packet with an invalid piece index");
@@ -460,7 +487,7 @@ public class PeerConnectionHandler {
     public void SetInterestAndRequest()
     {
         // System.out.println("PeerConnectionHandler " + this.state.getRemotePeerId() + " updating interest and requests");
-        Logger.print(Tag.HANDLER, "PeerConnectionHandler " + this.state.getRemotePeerId() + " updating interest and requests");
+        // Logger.print(Tag.HANDLER, "PeerConnectionHandler " + this.state.getRemotePeerId() + " updating interest and requests");
 
         // // If there's more pieces to request, request one.
         // int pieceIndex = this.localPeerManager.choosePieceToRequest(this.state.getPieces());
