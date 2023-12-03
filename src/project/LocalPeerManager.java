@@ -72,6 +72,7 @@ public class LocalPeerManager extends Thread {
     private final Lock choosePieceLock;
 
     private PeerConnectionManager optimisticallyUnchokedPeer;
+    private boolean hasDumpedFile;
 
     public LocalPeerManager(int localPeerId, Configuration config) {
         this.incomingControlMessages = new LinkedBlockingQueue<>();
@@ -83,7 +84,7 @@ public class LocalPeerManager extends Thread {
 
         this.localPieces = new Piece[this.config.getNumberOfPieces()];
         localFileCompleted = false;
-        
+        hasDumpedFile = false;
         //we connect to the peers after we create and start this thread
         allPeersConnected = new AtomicBoolean(false);
 
@@ -477,6 +478,11 @@ public class LocalPeerManager extends Thread {
         if (choked.size() == 0)
         {
             Logger.print(Tag.EXECUTOR, "Re-evaluating optimistically unchoked. Currently: " + (this.optimisticallyUnchokedPeer != null ? this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() : "null") + ". All interested peers are already unchoked, the optimistially unchoked peer will not change");
+            if(this.optimisticallyUnchokedPeer != null)
+            {
+                this.logger.log("Peer " + this.localPeerId + " has the optimistically unchoked neighbor " + this.optimisticallyUnchokedPeer.getConnectionState().getRemotePeerId() + ".");
+            }
+
             return;
         }
         PeerConnectionManager newOptomisticallyUnchoked = choked.get(random.nextInt(choked.size()));
@@ -526,7 +532,11 @@ public class LocalPeerManager extends Thread {
      * Dumps all the file pieces into a local file by looping over every piece and writing its content
      * through a byte buffer
      */
-    private void dumpFile() {
+    synchronized public void dumpFile() {
+        if(this.hasDumpedFile)
+        {
+            return;
+        }
         String filePath = String.format(DIRECTORY, this.localPeerId) + File.separator + this.config.getFileName();
 
         File file = new File((new File(filePath)).getAbsolutePath());
@@ -535,14 +545,17 @@ public class LocalPeerManager extends Thread {
             if (!file.exists()) {
                 boolean created = file.createNewFile();
             }
-
+            else
+            {
+            //    System.out.println("OUTPUT FILE ALREADY EXISTS");
+            }
             // Write each byte array to the file
             for (Piece piece : this.localPieces) {
                 fos.write(piece.getContent());
             }
 
             Logger.print(Tag.LOCAL_PEER_MANAGER, "Dumped all content into the file");
-
+            this.hasDumpedFile = true;
             this.logger.log("Peer " + this.localPeerId + " has downloaded the complete file.");
         } catch (IOException e) {
             System.err.println("An error occurred when trying to dump the content into the file");

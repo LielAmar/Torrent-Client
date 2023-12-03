@@ -18,11 +18,14 @@ public class PeerConnectionSender extends PeerConnection {
 
     private OutputStream out;
 
+    private final LocalPeerManager localPeerManager;
+
     public PeerConnectionSender(Socket connection, LocalPeerManager localPeerManager,
                                 ConnectionState state, BlockingQueue<Packet> outgoingMessageQueue) {
         super(connection, localPeerManager, state);
 
         this.messageQueue = outgoingMessageQueue;
+        this.localPeerManager = localPeerManager;
     }
 
     public void run() {
@@ -78,12 +81,16 @@ public class PeerConnectionSender extends PeerConnection {
             System.err.println("An error occurred when building a message of type " + message.getTypeString() +
                     " to send to peer " + this.state.getRemotePeerId());
         } catch (IOException exception) {
-            System.err.println("An error occurred whens sending a message of type " + message.getTypeString() +
-                    " to peer " + this.state.getRemotePeerId());
-            Logger.print(Tag.SENDER, "An error occurred whens sending a message of type " + message.getTypeString() +
-                    " to peer " + this.state.getRemotePeerId() + ". " + exception.toString());
-            System.err.println(exception);
-            exception.printStackTrace();
+            // if we get to an error here, its because the remote connection closed, so we probably lost a have message somewhere, and we should probably close too
+            this.localPeerManager.dumpFile();
+            this.localPeerManager.getLogger().close();
+            System.exit(0);
+            //System.err.println("An error occurred whens sending a message of type " + message.getTypeString() +
+            //        " to peer " + this.state.getRemotePeerId());
+            //Logger.print(Tag.SENDER, "An error occurred whens sending a message of type " + message.getTypeString() +
+            //        " to peer " + this.state.getRemotePeerId() + ". " + exception.toString());
+            //System.err.println(exception);
+            //exception.printStackTrace();
         }
     }
     

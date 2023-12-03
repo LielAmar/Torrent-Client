@@ -247,7 +247,6 @@ public class PeerConnectionManager extends PeerConnection {
         }
     }
     
-    
     public String dumpState()
     {
         Logger.print(Tag.DEBUG, "Dumping state for peer " + this.state.getRemotePeerId());
