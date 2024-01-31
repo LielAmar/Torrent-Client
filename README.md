@@ -1,6 +1,6 @@
 <div align="center">
   <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/University_of_Florida_logo.svg/528px-University_of_Florida_logo.svg.png" alt="ufl-logo" height="150px" />
-  <h1 align="center" style="border-bottom: none"><b>CEN4721 - Human-Computer Interaction</b></h1>
+  <h1 align="center" style="border-bottom: none"><b>CNT4007 - Computer Networks</b></h1>
 
   <p align="left">
     While I was an exchange student at the University of Florida, I had taken this class which focuses on understanding computer networks.
